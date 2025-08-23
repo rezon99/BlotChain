@@ -1,10 +1,22 @@
 import { Coin, MarketData } from '../types';
 
-const API_BASE_URL = 'https://api.coingecko.com/api/v3';
+const API_KEY = import.meta.env.VITE_COINGECKO_API_KEY;
+const API_BASE_URL = API_KEY
+  ? 'https://pro-api.coingecko.com/api/v3'
+  : 'https://api.coingecko.com/api/v3';
+
+const addApiKeyToUrl = (url: string): string => {
+  if (API_KEY) {
+    const separator = url.includes('?') ? '&' : '?';
+    return `${url}${separator}x_cg_pro_api_key=${API_KEY}`;
+  }
+  return url;
+};
 
 export const fetchCoins = async (): Promise<Coin[]> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/coins/list`);
+    const url = addApiKeyToUrl(`${API_BASE_URL}/coins/list`);
+    const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`Error fetching coins: ${response.statusText}`);
     }
@@ -23,7 +35,8 @@ export const fetchMarketData = async (coinIds: string[]): Promise<MarketData[]> 
 
   const ids = coinIds.join(',');
   try {
-    const response = await fetch(`${API_BASE_URL}/coins/markets?vs_currency=usd&ids=${ids}`);
+    const url = addApiKeyToUrl(`${API_BASE_URL}/coins/markets?vs_currency=usd&ids=${ids}`);
+    const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`Error fetching market data: ${response.statusText}`);
     }

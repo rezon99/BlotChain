@@ -47,3 +47,20 @@ npm run dev
 ```
 
 This will open the application in your default browser at `http://localhost:5173` (or the next available port).
+
+## Using an API Key (Optional)
+
+This project can be used with the public CoinGecko API without an API key. However, if you have a Pro API key from CoinGecko, you can use it to access higher rate limits and more features.
+
+To use your API key, follow these steps:
+
+1.  Create a new file named `.env` in the root directory of the project.
+2.  Add your API key to the `.env` file in the following format:
+
+    ```
+    VITE_COINGECKO_API_KEY=your_coingecko_api_key
+    ```
+
+3.  Restart the development server for the changes to take effect.
+
+The application will automatically detect the API key and use the Pro API endpoints.
