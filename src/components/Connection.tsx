@@ -15,7 +15,7 @@ const Particle: React.FC<{
   return (
     <circle
       r={particle.size}
-      fill="white"
+      fill={color}
       opacity={0.8}
       style={{
         filter: 'drop-shadow(0 0 4px rgba(255,255,255,0.6))'
