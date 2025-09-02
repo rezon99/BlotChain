@@ -1,19 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Node as NodeType, Connection, TooltipData } from '../types';
+import { Node as NodeType, TooltipData } from '../types';
 import { Node } from './Node';
 import { Connection as ConnectionComponent } from './Connection';
 import { Tooltip } from './Tooltip';
 import { CascadeEffect } from './CascadeEffect';
-import { 
-  generateMockNodes, 
-  generateMockConnections, 
-  updateNodesData, 
-  updateParticles 
-} from '../utils/dataSimulator';
+import { LoadingSpinner } from './LoadingSpinner';
+import { ErrorDisplay } from './ErrorDisplay';
+import { useRealTimeData } from '../hooks/useRealTimeData';
 
 export const Dashboard: React.FC = () => {
-  const [nodes, setNodes] = useState<NodeType[]>([]);
-  const [connections, setConnections] = useState<Connection[]>([]);
+  const { nodes, connections, loading, error, lastUpdate, refetch } = useRealTimeData();
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
   const [tooltip, setTooltip] = useState<TooltipData>({
     node: {} as NodeType,
@@ -27,53 +23,6 @@ export const Dashboard: React.FC = () => {
     y: number;
     trigger: number;
   }>>([]);
-  const [updateTrigger, setUpdateTrigger] = useState(0);
-
-  // Initialize data
-  useEffect(() => {
-    const initialNodes = generateMockNodes();
-    const initialConnections = generateMockConnections(initialNodes);
-    setNodes(initialNodes);
-    setConnections(initialConnections);
-  }, []);
-
-  // Update data periodically
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setNodes(currentNodes => {
-        const updatedNodes = updateNodesData(currentNodes);
-        
-        // Trigger cascade effects for significant changes
-        updatedNodes.forEach((node, index) => {
-          const oldNode = currentNodes[index];
-          if (oldNode && Math.abs(node.change24h - oldNode.change24h) > 10) {
-            setCascadeEffects(prev => [...prev, {
-              id: `cascade-${Date.now()}-${node.id}`,
-              x: node.x,
-              y: node.y,
-              trigger: Date.now()
-            }]);
-          }
-        });
-        
-        return updatedNodes;
-      });
-      
-      setConnections(currentConnections => updateParticles(currentConnections));
-      setUpdateTrigger(prev => prev + 1);
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  // Update particles more frequently
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setConnections(currentConnections => updateParticles(currentConnections));
-    }, 100);
-
-    return () => clearInterval(interval);
-  }, []);
 
   const handleNodeSelect = useCallback((nodeId: string) => {
     setSelectedNodes(prev => {
@@ -124,6 +73,16 @@ export const Dashboard: React.FC = () => {
     setCascadeEffects(prev => prev.filter(effect => effect.id !== effectId));
   }, []);
 
+  // Show loading spinner while fetching initial data
+  if (loading && nodes.length === 0) {
+    return <LoadingSpinner />;
+  }
+
+  // Show error display if there's an error and no data
+  if (error && nodes.length === 0) {
+    return <ErrorDisplay error={error} onRetry={refetch} />;
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 overflow-hidden">
       {/* Background grid */}
@@ -143,13 +102,27 @@ export const Dashboard: React.FC = () => {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-white mb-2">
-              Cryptocurrency Liquidity Dashboard
+              Real-time Cryptocurrency Liquidity Dashboard
             </h1>
             <p className="text-gray-400">
-              Real-time visualization of liquidity flows and market dynamics
+              Live data from CoinGecko API • Last update: {lastUpdate.toLocaleTimeString()}
             </p>
           </div>
           
+          <div className="flex items-center gap-4">
+            {error && (
+              <div className="text-yellow-400 text-sm">
+                ⚠ API Error (using cached data)
+              </div>
+            )}
+            
+            {loading && (
+              <div className="flex items-center gap-2 text-blue-400 text-sm">
+                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                Updating...
+              </div>
+            )}
+            
           {selectedNodes.size > 0 && (
             <button
               onClick={clearSelection}
@@ -254,7 +227,10 @@ export const Dashboard: React.FC = () => {
           <span className="text-green-400 text-sm">Live Data</span>
         </div>
         <div className="text-gray-400 text-xs mt-1">
-          Last update: {new Date().toLocaleTimeString()}
+          Last update: {lastUpdate.toLocaleTimeString()}
+        </div>
+        <div className="text-gray-500 text-xs">
+          {nodes.length} assets • {connections.length} connections
         </div>
       </div>
     </div>
