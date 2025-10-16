@@ -33,11 +33,17 @@ interface GlobalMarketData {
 
 class CoinGeckoApiService {
   private async makeRequest<T>(endpoint: string, params: Record<string, string> = {}): Promise<T> {
+    if (!BASE_URL) {
+      throw new Error('CoinGecko API base URL is not configured');
+    }
+
     const url = new URL(`${BASE_URL}${endpoint}`);
-    
-    // Add API key to params
-    params.x_cg_demo_api_key = API_KEY;
-    
+
+    // Add API key to params if available
+    if (API_KEY) {
+      params.x_cg_demo_api_key = API_KEY;
+    }
+
     Object.entries(params).forEach(([key, value]) => {
       url.searchParams.append(key, value);
     });
