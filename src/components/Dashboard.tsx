@@ -1,11 +1,9 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { Search, Filter, X } from 'lucide-react';
 import { Node as NodeType, TooltipData } from '../types';
-import { Node } from './Node';
-import { Connection as ConnectionComponent } from './Connection';
+import { Visualization } from './Visualization';
 import { Tooltip } from './Tooltip';
 import { Sidebar } from './Sidebar';
-import { CascadeEffect } from './CascadeEffect';
 import { LoadingSpinner } from './LoadingSpinner';
 import { ErrorDisplay } from './ErrorDisplay';
 import { useRealTimeData } from '../hooks/useRealTimeData';
@@ -75,22 +73,18 @@ export const Dashboard: React.FC = () => {
     });
   }, []);
 
-  const filteredNodes = useMemo(() => {
-    return nodes.filter(node => {
+  const filteredNodeIds = useMemo(() => {
+    const ids = new Set<string>();
+    nodes.forEach(node => {
       const matchesSearch = node.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           node.id.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesCategory = selectedCategories.size === 0 || selectedCategories.has(node.category);
-      return matchesSearch && matchesCategory;
+      if (matchesSearch && matchesCategory) {
+        ids.add(node.id);
+      }
     });
+    return ids;
   }, [nodes, searchQuery, selectedCategories]);
-
-  const filteredNodeIds = useMemo(() => new Set(filteredNodes.map(n => n.id)), [filteredNodes]);
-
-  const filteredConnections = useMemo(() => {
-    return connections.filter(conn =>
-      filteredNodeIds.has(conn.source) && filteredNodeIds.has(conn.target)
-    );
-  }, [connections, filteredNodeIds]);
 
   const getConnectedNodeIds = (nodeIds: string[]): string[] => {
     const connected = new Set(nodeIds);
@@ -137,10 +131,10 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* Header */}
-      <div className="relative z-10 p-6 space-y-6">
-        <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
+      <div className="relative z-30 p-6 space-y-6 pointer-events-none">
+        <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 pointer-events-auto">
           <div>
-            <h1 className="text-3xl font-bold text-white mb-2">
+            <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">
               Real-time Cryptocurrency Liquidity Dashboard
             </h1>
             <div className="flex flex-wrap items-center gap-3 text-gray-400">
@@ -152,7 +146,7 @@ export const Dashboard: React.FC = () => {
               <p>Last update: {lastUpdate.toLocaleTimeString()}</p>
               <span className="hidden md:inline text-slate-700">|</span>
               <p className="text-blue-400/80 font-medium">
-                {filteredNodes.length} of {nodes.length} assets • {filteredConnections.length} connections
+                {filteredNodeIds.size} of {nodes.length} assets
               </p>
             </div>
           </div>
@@ -203,7 +197,7 @@ export const Dashboard: React.FC = () => {
         </div>
 
         {/* Filters */}
-        <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-hide">
+        <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-hide pointer-events-auto">
           <div className="flex items-center gap-2 text-gray-400 mr-2">
             <Filter size={16} />
             <span className="text-sm font-medium whitespace-nowrap">Categories:</span>
@@ -235,53 +229,18 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* Main visualization */}
-      <div className="relative">
-        <svg 
-          viewBox="0 0 800 600" 
-          className="w-full h-screen max-w-full"
-          style={{ minHeight: '600px' }}
-        >
-          {/* Connections */}
-          {filteredConnections.map(connection => (
-            <ConnectionComponent
-              key={connection.id}
-              connection={connection}
-              nodes={nodes}
-              isHighlighted={
-                selectedNodes.has(connection.source) || 
-                selectedNodes.has(connection.target) ||
-                selectedNodes.size === 0
-              }
-            />
-          ))}
-          
-          {/* Nodes */}
-          {filteredNodes.map(node => (
-            <Node
-              key={node.id}
-              node={node}
-              onSelect={handleNodeSelect}
-              onHover={handleNodeHover}
-              onHoverEnd={handleNodeHoverEnd}
-              isConnected={
-                connectedNodeIds.includes(node.id) || 
-                selectedNodes.size === 0
-              }
-            />
-          ))}
-          
-          {/* Cascade effects */}
-          {cascadeEffects.map(effect => (
-            <CascadeEffect
-              key={effect.id}
-              x={effect.x}
-              y={effect.y}
-              trigger={effect.trigger}
-              onComplete={() => handleCascadeComplete(effect.id)}
-            />
-          ))}
-        </svg>
-      </div>
+      <Visualization
+        nodes={nodes}
+        connections={connections}
+        filteredNodeIds={filteredNodeIds}
+        selectedNodes={selectedNodes}
+        connectedNodeIds={connectedNodeIds}
+        cascadeEffects={cascadeEffects}
+        onNodeSelect={handleNodeSelect}
+        onNodeHover={handleNodeHover}
+        onNodeHoverEnd={handleNodeHoverEnd}
+        onCascadeComplete={handleCascadeComplete}
+      />
 
       {/* Tooltip */}
       <Tooltip data={tooltip} />
