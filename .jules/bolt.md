@@ -1,0 +1,3 @@
+## 2025-05-14 - [Animation Performance Bottleneck]
+**Learning:** High-frequency `setInterval` (100ms/50ms) updating React state for animations (particles/breathing effects) creates a massive performance bottleneck. It forces the entire component tree to re-render constantly, consuming significant CPU and blocking the main thread.
+**Action:** Use native SVG declarative animations (`<animate>`, `<animateMotion>`) instead of React state for continuous visual effects. This offloads the animation to the browser's compositor thread and allows React components to be memoized, only re-rendering when actual data (not animation frame) changes.

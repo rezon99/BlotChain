@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { Node, Connection } from '../types';
 import { coinGeckoApi } from '../services/coinGeckoApi';
 import { transformCoinDataToNodes, generateConnectionsFromRealData } from '../utils/dataTransformer';
-import { updateParticles } from '../utils/dataSimulator';
 
 export function useRealTimeData() {
   const [nodes, setNodes] = useState<Node[]>([]);
@@ -46,15 +45,6 @@ export function useRealTimeData() {
     const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
   }, [fetchData]);
-
-  // Update particles more frequently for smooth animation
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setConnections(currentConnections => updateParticles(currentConnections));
-    }, 100);
-
-    return () => clearInterval(interval);
-  }, []);
 
   return {
     nodes,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { Node as NodeType, TooltipData } from '../types';
 import { Node } from './Node';
 import { Connection as ConnectionComponent } from './Connection';
@@ -53,21 +53,20 @@ export const Dashboard: React.FC = () => {
     setSelectedNodes(new Set());
   }, []);
 
-  const getConnectedNodeIds = (nodeIds: string[]): string[] => {
-    const connected = new Set(nodeIds);
+  const connectedNodeIds = useMemo(() => {
+    if (selectedNodes.size === 0) return [];
+
+    const connected = new Set(selectedNodes);
     connections.forEach(conn => {
-      if (nodeIds.includes(conn.source)) {
+      if (selectedNodes.has(conn.source)) {
         connected.add(conn.target);
       }
-      if (nodeIds.includes(conn.target)) {
+      if (selectedNodes.has(conn.target)) {
         connected.add(conn.source);
       }
     });
     return Array.from(connected);
-  };
-
-  const connectedNodeIds = selectedNodes.size > 0 ? 
-    getConnectedNodeIds(Array.from(selectedNodes)) : [];
+  }, [selectedNodes, connections]);
 
   const handleCascadeComplete = useCallback((effectId: string) => {
     setCascadeEffects(prev => prev.filter(effect => effect.id !== effectId));

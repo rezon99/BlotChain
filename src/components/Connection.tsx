@@ -9,9 +9,8 @@ interface ConnectionProps {
 
 const Particle: React.FC<{ 
   particle: ParticleType; 
-  path: string; 
-  color: string;
-}> = ({ particle, path, color }) => {
+  path: string;
+}> = ({ particle, path }) => {
   return (
     <circle
       r={particle.size}
@@ -24,7 +23,7 @@ const Particle: React.FC<{
       <animateMotion
         dur="3s"
         repeatCount="indefinite"
-        begin={`${particle.progress * 3}s`}
+        begin={`-${particle.progress * 3}s`}
       >
         <mpath href={`#${path.replace('#', '')}`} />
       </animateMotion>
@@ -32,7 +31,7 @@ const Particle: React.FC<{
   );
 };
 
-export const Connection: React.FC<ConnectionProps> = ({ 
+export const Connection: React.FC<ConnectionProps> = React.memo(({
   connection, 
   nodes, 
   isHighlighted 
@@ -111,7 +110,6 @@ export const Connection: React.FC<ConnectionProps> = ({
           key={particle.id}
           particle={particle}
           path={`#${pathId.replace('#', '')}`}
-          color={color}
         />
       ))}
       
@@ -128,4 +126,4 @@ export const Connection: React.FC<ConnectionProps> = ({
       />
     </g>
   );
-};
+});

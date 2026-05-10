@@ -9,7 +9,7 @@ interface NodeProps {
   isConnected: boolean;
 }
 
-export const Node: React.FC<NodeProps> = ({ 
+export const Node: React.FC<NodeProps> = React.memo(({
   node, 
   onSelect, 
   onHover, 
@@ -17,16 +17,6 @@ export const Node: React.FC<NodeProps> = ({
   isConnected 
 }) => {
   const [scale, setScale] = useState(1);
-  const [breatheScale, setBreatheScale] = useState(1);
-
-  useEffect(() => {
-    // Breathing animation
-    const interval = setInterval(() => {
-      setBreatheScale(0.97 + Math.sin(Date.now() * 0.001) * 0.03);
-    }, 50);
-
-    return () => clearInterval(interval);
-  }, []);
 
   useEffect(() => {
     // Scale animation when node data changes
@@ -56,7 +46,7 @@ export const Node: React.FC<NodeProps> = ({
       <circle
         cx={node.x}
         cy={node.y}
-        r={node.size * scale * breatheScale}
+        r={node.size * scale}
         fill={node.color}
         opacity={opacity}
         style={{
@@ -64,19 +54,33 @@ export const Node: React.FC<NodeProps> = ({
           strokeWidth: node.isSelected ? 3 : 0,
           stroke: node.isSelected ? '#ffffff' : 'none'
         }}
-      />
+      >
+        <animate
+          attributeName="r"
+          values={`${node.size * scale * 0.94};${node.size * scale * 1.06};${node.size * scale * 0.94}`}
+          dur="3s"
+          repeatCount="indefinite"
+        />
+      </circle>
       
       {/* Inner glow effect */}
       <circle
         cx={node.x}
         cy={node.y}
-        r={node.size * scale * breatheScale * 0.7}
+        r={node.size * scale * 0.7}
         fill={node.color}
         opacity={0.3}
         style={{
           transition: 'all 0.8s ease-in-out'
         }}
-      />
+      >
+        <animate
+          attributeName="r"
+          values={`${node.size * scale * 0.7 * 0.94};${node.size * scale * 0.7 * 1.06};${node.size * scale * 0.7 * 0.94}`}
+          dur="3s"
+          repeatCount="indefinite"
+        />
+      </circle>
       
       {/* Node label */}
       <text
@@ -110,4 +114,4 @@ export const Node: React.FC<NodeProps> = ({
       </text>
     </g>
   );
-};
+});
