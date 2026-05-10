@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
+import { Search, Filter, X } from 'lucide-react';
 import { Node as NodeType, TooltipData } from '../types';
 import { Node } from './Node';
 import { Connection as ConnectionComponent } from './Connection';
@@ -11,6 +12,8 @@ import { useRealTimeData } from '../hooks/useRealTimeData';
 export const Dashboard: React.FC = () => {
   const { nodes, connections, loading, error, lastUpdate, refetch } = useRealTimeData();
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   const [tooltip, setTooltip] = useState<TooltipData>({
     node: {} as NodeType,
     x: 0,
@@ -52,6 +55,39 @@ export const Dashboard: React.FC = () => {
   const clearSelection = useCallback(() => {
     setSelectedNodes(new Set());
   }, []);
+
+  const categories = useMemo(() => {
+    return Array.from(new Set(nodes.map(node => node.category))).sort();
+  }, [nodes]);
+
+  const toggleCategory = useCallback((category: string) => {
+    setSelectedCategories(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(category)) {
+        newSet.delete(category);
+      } else {
+        newSet.add(category);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const filteredNodes = useMemo(() => {
+    return nodes.filter(node => {
+      const matchesSearch = node.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          node.id.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCategory = selectedCategories.size === 0 || selectedCategories.has(node.category);
+      return matchesSearch && matchesCategory;
+    });
+  }, [nodes, searchQuery, selectedCategories]);
+
+  const filteredNodeIds = useMemo(() => new Set(filteredNodes.map(n => n.id)), [filteredNodes]);
+
+  const filteredConnections = useMemo(() => {
+    return connections.filter(conn =>
+      filteredNodeIds.has(conn.source) && filteredNodeIds.has(conn.target)
+    );
+  }, [connections, filteredNodeIds]);
 
   const getConnectedNodeIds = (nodeIds: string[]): string[] => {
     const connected = new Set(nodeIds);
@@ -98,18 +134,27 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* Header */}
-      <div className="relative z-10 p-6">
-        <div className="flex justify-between items-center">
+      <div className="relative z-10 p-6 space-y-6">
+        <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold text-white mb-2">
               Real-time Cryptocurrency Liquidity Dashboard
             </h1>
-            <p className="text-gray-400">
-              Live data from CoinGecko API • Last update: {lastUpdate.toLocaleTimeString()}
-            </p>
+            <div className="flex flex-wrap items-center gap-3 text-gray-400">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                <p>Live data from CoinGecko API</p>
+              </div>
+              <span className="hidden md:inline text-slate-700">•</span>
+              <p>Last update: {lastUpdate.toLocaleTimeString()}</p>
+              <span className="hidden md:inline text-slate-700">|</span>
+              <p className="text-blue-400/80 font-medium">
+                {filteredNodes.length} of {nodes.length} assets • {filteredConnections.length} connections
+              </p>
+            </div>
           </div>
           
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-4">
             {error && (
               <div className="text-yellow-400 text-sm">
                 ⚠ API Error (using cached data)
@@ -126,9 +171,60 @@ export const Dashboard: React.FC = () => {
             {selectedNodes.size > 0 && (
               <button
                 onClick={clearSelection}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                className="px-4 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 rounded-lg transition-colors flex items-center gap-2"
               >
+                <X size={16} />
                 Clear Selection ({selectedNodes.size})
+              </button>
+            )}
+
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+              <input
+                type="text"
+                placeholder="Search assets..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 pr-4 py-2 bg-slate-800/50 border border-slate-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 w-64"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-hide">
+          <div className="flex items-center gap-2 text-gray-400 mr-2">
+            <Filter size={16} />
+            <span className="text-sm font-medium whitespace-nowrap">Categories:</span>
+          </div>
+          <div className="flex gap-2">
+            {categories.map(category => (
+              <button
+                key={category}
+                onClick={() => toggleCategory(category)}
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-all whitespace-nowrap border ${
+                  selectedCategories.has(category)
+                    ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-900/20'
+                    : 'bg-slate-800/40 border-slate-700 text-gray-400 hover:border-slate-600'
+                }`}
+              >
+                {category}
+              </button>
+            ))}
+            {selectedCategories.size > 0 && (
+              <button
+                onClick={() => setSelectedCategories(new Set())}
+                className="px-3 py-1 text-xs text-gray-500 hover:text-white transition-colors"
+              >
+                Clear Filters
               </button>
             )}
           </div>
@@ -143,7 +239,7 @@ export const Dashboard: React.FC = () => {
           style={{ minHeight: '600px' }}
         >
           {/* Connections */}
-          {connections.map(connection => (
+          {filteredConnections.map(connection => (
             <ConnectionComponent
               key={connection.id}
               connection={connection}
@@ -157,7 +253,7 @@ export const Dashboard: React.FC = () => {
           ))}
           
           {/* Nodes */}
-          {nodes.map(node => (
+          {filteredNodes.map(node => (
             <Node
               key={node.id}
               node={node}
@@ -188,7 +284,7 @@ export const Dashboard: React.FC = () => {
       <Tooltip data={tooltip} />
 
       {/* Legend */}
-      <div className="absolute bottom-6 left-6 bg-gray-900 bg-opacity-90 backdrop-blur-sm border border-gray-700 rounded-lg p-4">
+      <div className="absolute bottom-6 left-6 bg-gray-900 bg-opacity-90 backdrop-blur-sm border border-gray-700 rounded-lg p-4 z-20">
         <h3 className="text-white font-semibold mb-3">Legend</h3>
         <div className="space-y-2 text-sm">
           <div className="flex items-center gap-2">
@@ -218,20 +314,6 @@ export const Dashboard: React.FC = () => {
             <div className="w-4 h-0.5 bg-orange-500" />
             <span className="text-gray-300 text-sm">Liquidity Outflow</span>
           </div>
-        </div>
-      </div>
-
-      {/* Status indicator */}
-      <div className="absolute top-6 right-6 bg-gray-900 bg-opacity-90 backdrop-blur-sm border border-gray-700 rounded-lg p-3">
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-          <span className="text-green-400 text-sm">Live Data</span>
-        </div>
-        <div className="text-gray-400 text-xs mt-1">
-          Last update: {lastUpdate.toLocaleTimeString()}
-        </div>
-        <div className="text-gray-500 text-xs">
-          {nodes.length} assets • {connections.length} connections
         </div>
       </div>
     </div>
