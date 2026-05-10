@@ -11,6 +11,7 @@ import { useRealTimeData } from '../hooks/useRealTimeData';
 export const Dashboard: React.FC = () => {
   const { nodes, connections, loading, error, lastUpdate, refetch } = useRealTimeData();
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
+  const [categoryFilter, setCategoryFilter] = useState<string>('All');
   const [tooltip, setTooltip] = useState<TooltipData>({
     node: {} as NodeType,
     x: 0,
@@ -53,25 +54,42 @@ export const Dashboard: React.FC = () => {
     setSelectedNodes(new Set());
   }, []);
 
-  const getConnectedNodeIds = (nodeIds: string[]): string[] => {
-    const connected = new Set(nodeIds);
+  const connectedNodeIds = React.useMemo(() => {
+    if (selectedNodes.size === 0) return [];
+
+    const connected = new Set(Array.from(selectedNodes));
+
     connections.forEach(conn => {
-      if (nodeIds.includes(conn.source)) {
+      if (selectedNodes.has(conn.source)) {
         connected.add(conn.target);
       }
-      if (nodeIds.includes(conn.target)) {
+      if (selectedNodes.has(conn.target)) {
         connected.add(conn.source);
       }
     });
-    return Array.from(connected);
-  };
 
-  const connectedNodeIds = selectedNodes.size > 0 ? 
-    getConnectedNodeIds(Array.from(selectedNodes)) : [];
+    return Array.from(connected);
+  }, [selectedNodes, connections]);
 
   const handleCascadeComplete = useCallback((effectId: string) => {
     setCascadeEffects(prev => prev.filter(effect => effect.id !== effectId));
   }, []);
+
+  const categories = React.useMemo(() => {
+    const cats = new Set(nodes.map(n => n.category));
+    return ['All', ...Array.from(cats)].sort();
+  }, [nodes]);
+
+  const filteredNodes = React.useMemo(() => {
+    if (categoryFilter === 'All') return nodes;
+    return nodes.filter(n => n.category === categoryFilter);
+  }, [nodes, categoryFilter]);
+
+  const filteredConnections = React.useMemo(() => {
+    if (categoryFilter === 'All') return connections;
+    const filteredNodeIds = new Set(filteredNodes.map(n => n.id));
+    return connections.filter(c => filteredNodeIds.has(c.source) && filteredNodeIds.has(c.target));
+  }, [connections, filteredNodes, categoryFilter]);
 
   // Show loading spinner while fetching initial data
   if (loading && nodes.length === 0) {
@@ -110,6 +128,22 @@ export const Dashboard: React.FC = () => {
           </div>
           
           <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 bg-slate-800/50 p-1 rounded-lg border border-slate-700">
+              {categories.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setCategoryFilter(cat)}
+                  className={`px-3 py-1 text-xs rounded-md transition-all ${
+                    categoryFilter === cat
+                      ? 'bg-blue-600 text-white shadow-lg'
+                      : 'text-gray-400 hover:text-gray-200 hover:bg-slate-700'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+
             {error && (
               <div className="text-yellow-400 text-sm">
                 ⚠ API Error (using cached data)
@@ -143,11 +177,11 @@ export const Dashboard: React.FC = () => {
           style={{ minHeight: '600px' }}
         >
           {/* Connections */}
-          {connections.map(connection => (
+          {filteredConnections.map(connection => (
             <ConnectionComponent
               key={connection.id}
               connection={connection}
-              nodes={nodes}
+              nodes={filteredNodes}
               isHighlighted={
                 selectedNodes.has(connection.source) || 
                 selectedNodes.has(connection.target) ||
@@ -157,7 +191,7 @@ export const Dashboard: React.FC = () => {
           ))}
           
           {/* Nodes */}
-          {nodes.map(node => (
+          {filteredNodes.map(node => (
             <Node
               key={node.id}
               node={node}
