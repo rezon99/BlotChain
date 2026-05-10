@@ -1,5 +1,5 @@
 const API_KEY = import.meta.env.VITE_COINGECKO_API_KEY;
-const BASE_URL = import.meta.env.VITE_COINGECKO_BASE_URL;
+const BASE_URL = import.meta.env.VITE_COINGECKO_BASE_URL || 'https://api.coingecko.com/api/v3';
 
 interface CoinMarketData {
   id: string;
@@ -88,7 +88,7 @@ class CoinGeckoApiService {
     return this.makeRequest<GlobalMarketData>('/global');
   }
 
-  async getCoinHistory(coinId: string, days: number = 7): Promise<any> {
+  async getCoinHistory(coinId: string, days: number = 7): Promise<unknown> {
     return this.makeRequest(`/coins/${coinId}/market_chart`, {
       vs_currency: 'usd',
       days: days.toString(),
