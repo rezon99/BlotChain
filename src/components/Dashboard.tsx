@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Node as NodeType, TooltipData } from '../types';
 import { Node } from './Node';
 import { Connection as ConnectionComponent } from './Connection';
