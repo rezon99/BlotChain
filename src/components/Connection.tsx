@@ -9,9 +9,8 @@ interface ConnectionProps {
 
 const Particle: React.FC<{ 
   particle: ParticleType; 
-  path: string; 
-  color: string;
-}> = ({ particle, path, color }) => {
+  path: string;
+}> = ({ particle, path }) => {
   return (
     <circle
       r={particle.size}
