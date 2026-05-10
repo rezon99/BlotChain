@@ -1,8 +1,12 @@
 export interface Node {
   id: string;
   name: string;
+  symbol: string;
   category: string;
   liquidity: number;
+  marketCap: number;
+  totalVolume: number;
+  currentPrice: number;
   change24h: number;
   change7d: number;
   x: number;

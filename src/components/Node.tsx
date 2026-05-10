@@ -34,7 +34,7 @@ export const Node: React.FC<NodeProps> = ({
       setScale(1.1);
       setTimeout(() => setScale(1), 300);
     }
-  }, [node.lastUpdated]);
+  }, [node.lastUpdated, node.change24h]);
 
   const opacity = node.isSelected || isConnected ? 1 : 0.8;
   const glowIntensity = node.isSelected ? 15 : 0;

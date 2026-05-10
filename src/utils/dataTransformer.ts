@@ -44,8 +44,12 @@ export function transformCoinDataToNodes(
     return {
       id: item.id,
       name: item.name,
+      symbol: item.symbol,
       category,
       liquidity,
+      marketCap: item.market_cap,
+      totalVolume: item.total_volume,
+      currentPrice: item.current_price,
       change24h: item.price_change_percentage_24h || 0,
       change7d: item.price_change_percentage_7d_in_currency || 0,
       x: 400 + Math.cos(angle) * radius,

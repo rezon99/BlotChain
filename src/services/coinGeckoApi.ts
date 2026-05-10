@@ -88,7 +88,7 @@ class CoinGeckoApiService {
     return this.makeRequest<GlobalMarketData>('/global');
   }
 
-  async getCoinHistory(coinId: string, days: number = 7): Promise<any> {
+  async getCoinHistory(coinId: string, days: number = 7): Promise<{ prices: [number, number][] }> {
     return this.makeRequest(`/coins/${coinId}/market_chart`, {
       vs_currency: 'usd',
       days: days.toString(),

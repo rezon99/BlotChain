@@ -4,6 +4,7 @@ import { Node as NodeType, TooltipData } from '../types';
 import { Node } from './Node';
 import { Connection as ConnectionComponent } from './Connection';
 import { Tooltip } from './Tooltip';
+import { Sidebar } from './Sidebar';
 import { CascadeEffect } from './CascadeEffect';
 import { LoadingSpinner } from './LoadingSpinner';
 import { ErrorDisplay } from './ErrorDisplay';
@@ -12,6 +13,7 @@ import { useRealTimeData } from '../hooks/useRealTimeData';
 export const Dashboard: React.FC = () => {
   const { nodes, connections, loading, error, lastUpdate, refetch } = useRealTimeData();
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
+  const [selectedSidebarNodeId, setSelectedSidebarNodeId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   const [tooltip, setTooltip] = useState<TooltipData>({
@@ -37,6 +39,7 @@ export const Dashboard: React.FC = () => {
       }
       return newSet;
     });
+    setSelectedSidebarNodeId(prev => prev === nodeId ? null : nodeId);
   }, []);
 
   const handleNodeHover = useCallback((node: NodeType, x: number, y: number) => {
@@ -282,6 +285,17 @@ export const Dashboard: React.FC = () => {
 
       {/* Tooltip */}
       <Tooltip data={tooltip} />
+
+      {/* Sidebar */}
+      {(() => {
+        const selectedNode = nodes.find(n => n.id === selectedSidebarNodeId);
+        return selectedNode ? (
+          <Sidebar
+            node={selectedNode}
+            onClose={() => setSelectedSidebarNodeId(null)}
+          />
+        ) : null;
+      })()}
 
       {/* Legend */}
       <div className="absolute bottom-6 left-6 bg-gray-900 bg-opacity-90 backdrop-blur-sm border border-gray-700 rounded-lg p-4 z-20">
