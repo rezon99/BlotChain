@@ -28,13 +28,20 @@ interface GlobalMarketData {
     total_volume: Record<string, number>;
     market_cap_percentage: Record<string, number>;
     market_cap_change_percentage_24h_usd: number;
+    updated_at: number;
   };
+}
+
+interface MarketChartData {
+  prices: [number, number][];
+  market_caps: [number, number][];
+  total_volumes: [number, number][];
 }
 
 class CoinGeckoApiService {
   private async makeRequest<T>(endpoint: string, params: Record<string, string> = {}): Promise<T> {
     if (!BASE_URL) {
-      throw new Error('CoinGecko API base URL is not configured');
+      throw new Error('CoinGecko API base URL is not configured. Please check your environment variables.');
     }
 
     const url = new URL(`${BASE_URL}${endpoint}`);
@@ -55,12 +62,24 @@ class CoinGeckoApiService {
         },
       });
 
+      if (response.status === 429) {
+        throw new Error('CoinGecko API rate limit exceeded. Please try again later or use an API key.');
+      }
+
       if (!response.ok) {
-        throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          `CoinGecko API error: ${response.status} ${response.statusText}${
+            errorData.error ? ` - ${errorData.error}` : ''
+          }`
+        );
       }
 
       return await response.json();
     } catch (error) {
+      if (error instanceof TypeError && error.message === 'Failed to fetch') {
+        throw new Error('Network error: Unable to connect to CoinGecko API. Please check your internet connection.');
+      }
       console.error('CoinGecko API Error:', error);
       throw error;
     }
@@ -88,8 +107,8 @@ class CoinGeckoApiService {
     return this.makeRequest<GlobalMarketData>('/global');
   }
 
-  async getCoinHistory(coinId: string, days: number = 7): Promise<unknown> {
-    return this.makeRequest(`/coins/${coinId}/market_chart`, {
+  async getCoinHistory(coinId: string, days: number = 7): Promise<MarketChartData> {
+    return this.makeRequest<MarketChartData>(`/coins/${coinId}/market_chart`, {
       vs_currency: 'usd',
       days: days.toString(),
       interval: 'daily'
