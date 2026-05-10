@@ -31,29 +31,31 @@ export function transformCoinDataToNodes(
     const angle = (index * 2 * Math.PI) / allData.length;
     const radius = 180 + (index % 3) * 80; // Varied radius for visual appeal
     
-    // Calculate liquidity based on market cap and volume
+    // Calculate liquidity based on market cap and volume with safety checks
+    const marketCap = item.market_cap || 0;
+    const totalVolume = item.total_volume || 0;
     const liquidity = item.type === 'coin' 
-      ? item.market_cap + item.total_volume 
-      : item.volume;
+      ? marketCap + totalVolume
+      : item.volume || 0;
     
     // Determine category
     const category = item.type === 'exchange' 
       ? 'Exchange'
-      : getCoinCategory(item.name, item.market_cap_rank);
+      : getCoinCategory(item.name || 'Unknown', item.market_cap_rank || 999);
 
     return {
-      id: item.id,
-      name: item.name,
+      id: item.id || `unknown-${index}`,
+      name: item.name || 'Unknown Asset',
       category,
       liquidity,
-      change24h: item.price_change_percentage_24h || 0,
-      change7d: item.price_change_percentage_7d_in_currency || 0,
+      change24h: item.price_change_percentage_24h ?? 0,
+      change7d: item.price_change_percentage_7d_in_currency ?? 0,
       x: 400 + Math.cos(angle) * radius,
       y: 300 + Math.sin(angle) * radius,
       size: calculateNodeSize(liquidity),
       color: getNodeColor(
-        item.price_change_percentage_24h || 0, 
-        item.price_change_percentage_7d_in_currency || 0
+        item.price_change_percentage_24h ?? 0,
+        item.price_change_percentage_7d_in_currency ?? 0
       ),
       isSelected: false,
       lastUpdated: Date.now()

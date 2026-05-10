@@ -9,7 +9,7 @@ interface NodeProps {
   isConnected: boolean;
 }
 
-export const Node: React.FC<NodeProps> = ({ 
+export const Node: React.FC<NodeProps> = React.memo(({
   node, 
   onSelect, 
   onHover, 
@@ -110,4 +110,6 @@ export const Node: React.FC<NodeProps> = ({
       </text>
     </g>
   );
-};
+});
+
+Node.displayName = 'Node';

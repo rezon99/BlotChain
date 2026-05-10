@@ -31,7 +31,7 @@ const Particle: React.FC<{
   );
 };
 
-export const Connection: React.FC<ConnectionProps> = ({ 
+export const Connection: React.FC<ConnectionProps> = React.memo(({
   connection, 
   nodes, 
   isHighlighted 
@@ -127,4 +127,6 @@ export const Connection: React.FC<ConnectionProps> = ({
       />
     </g>
   );
-};
+});
+
+Connection.displayName = 'Connection';
