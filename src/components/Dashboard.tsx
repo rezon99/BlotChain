@@ -1,17 +1,26 @@
 import React, { useState, useCallback } from 'react';
-import { Node as NodeType, TooltipData } from '../types';
+import { Node as NodeType, TooltipData, AnimationSettings } from '../types';
 import { Node } from './Node';
 import { Connection as ConnectionComponent } from './Connection';
 import { Tooltip } from './Tooltip';
 import { CascadeEffect } from './CascadeEffect';
 import { LoadingSpinner } from './LoadingSpinner';
 import { ErrorDisplay } from './ErrorDisplay';
+import { SettingsPanel } from './SettingsPanel';
+import { ComparisonPanel } from './ComparisonPanel';
 import { useRealTimeData } from '../hooks/useRealTimeData';
 
 export const Dashboard: React.FC = () => {
-  const { nodes, connections, loading, error, lastUpdate, refetch } = useRealTimeData();
+  const [refreshInterval, setRefreshInterval] = useState(30000);
+  const { nodes, connections, loading, error, lastUpdate, refetch } = useRealTimeData(refreshInterval);
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
+  const [animationSettings, setAnimationSettings] = useState<AnimationSettings>({
+    enabled: true,
+    particleSpeed: 1,
+    breathingIntensity: 1
+  });
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [tooltip, setTooltip] = useState<TooltipData>({
     node: {} as NodeType,
     x: 0,
@@ -31,6 +40,13 @@ export const Dashboard: React.FC = () => {
       if (newSet.has(nodeId)) {
         newSet.delete(nodeId);
       } else {
+        // If already have 2 selected, we might want to replace the oldest one or just clear and select new
+        // For comparison, let's limit to 2.
+        if (newSet.size >= 2) {
+          // Keep the latest one and add the new one
+          const arr = Array.from(newSet);
+          return new Set([arr[1], nodeId]);
+        }
         newSet.add(nodeId);
       }
       return newSet;
@@ -90,6 +106,10 @@ export const Dashboard: React.FC = () => {
     const filteredNodeIds = new Set(filteredNodes.map(n => n.id));
     return connections.filter(c => filteredNodeIds.has(c.source) && filteredNodeIds.has(c.target));
   }, [connections, filteredNodes, categoryFilter]);
+
+  const selectedNodeData = React.useMemo(() => {
+    return nodes.filter(n => selectedNodes.has(n.id));
+  }, [nodes, selectedNodes]);
 
   // Show loading spinner while fetching initial data
   if (loading && nodes.length === 0) {
@@ -187,6 +207,7 @@ export const Dashboard: React.FC = () => {
                 selectedNodes.has(connection.target) ||
                 selectedNodes.size === 0
               }
+              animationSettings={animationSettings}
             />
           ))}
           
@@ -202,6 +223,7 @@ export const Dashboard: React.FC = () => {
                 connectedNodeIds.includes(node.id) || 
                 selectedNodes.size === 0
               }
+              animationSettings={animationSettings}
             />
           ))}
           
@@ -220,6 +242,22 @@ export const Dashboard: React.FC = () => {
 
       {/* Tooltip */}
       <Tooltip data={tooltip} />
+
+      {/* Settings Panel */}
+      <SettingsPanel
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(!isSettingsOpen)}
+        refreshInterval={refreshInterval}
+        setRefreshInterval={setRefreshInterval}
+        animationSettings={animationSettings}
+        setAnimationSettings={setAnimationSettings}
+      />
+
+      {/* Comparison Panel */}
+      <ComparisonPanel
+        selectedNodes={selectedNodeData}
+        onClear={clearSelection}
+      />
 
       {/* Legend */}
       <div className="absolute bottom-6 left-6 bg-gray-900 bg-opacity-90 backdrop-blur-sm border border-gray-700 rounded-lg p-4">

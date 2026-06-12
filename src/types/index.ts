@@ -2,6 +2,7 @@ export interface Node {
   id: string;
   name: string;
   category: string;
+  price: number;
   liquidity: number;
   change24h: number;
   change7d: number;
@@ -34,4 +35,10 @@ export interface TooltipData {
   x: number;
   y: number;
   visible: boolean;
+}
+
+export interface AnimationSettings {
+  enabled: boolean;
+  particleSpeed: number;
+  breathingIntensity: number;
 }
