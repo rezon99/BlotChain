@@ -4,7 +4,7 @@ import { coinGeckoApi } from '../services/coinGeckoApi';
 import { transformCoinDataToNodes, generateConnectionsFromRealData } from '../utils/dataTransformer';
 import { updateParticles } from '../utils/dataSimulator';
 
-export function useRealTimeData() {
+export function useRealTimeData(refreshInterval: number = 30000) {
   const [nodes, setNodes] = useState<Node[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,11 +41,11 @@ export function useRealTimeData() {
     fetchData();
   }, [fetchData]);
 
-  // Update data every 30 seconds (CoinGecko rate limit friendly)
+  // Update data based on refresh interval
   useEffect(() => {
-    const interval = setInterval(fetchData, 30000);
+    const interval = setInterval(fetchData, refreshInterval);
     return () => clearInterval(interval);
-  }, [fetchData]);
+  }, [fetchData, refreshInterval]);
 
   // Update particles more frequently for smooth animation
   useEffect(() => {

@@ -47,6 +47,7 @@ export function transformCoinDataToNodes(
       id: item.id || `unknown-${index}`,
       name: item.name || 'Unknown Asset',
       category,
+      price: item.current_price || 0,
       liquidity,
       change24h: item.price_change_percentage_24h ?? 0,
       change7d: item.price_change_percentage_7d_in_currency ?? 0,

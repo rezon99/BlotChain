@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Node as NodeType } from '../types';
+import { Node as NodeType, AnimationSettings } from '../types';
 
 interface NodeProps {
   node: NodeType;
@@ -7,6 +7,7 @@ interface NodeProps {
   onHover: (node: NodeType, x: number, y: number) => void;
   onHoverEnd: () => void;
   isConnected: boolean;
+  animationSettings: AnimationSettings;
 }
 
 export const Node: React.FC<NodeProps> = React.memo(({
@@ -14,19 +15,25 @@ export const Node: React.FC<NodeProps> = React.memo(({
   onSelect, 
   onHover, 
   onHoverEnd, 
-  isConnected 
+  isConnected,
+  animationSettings
 }) => {
   const [scale, setScale] = useState(1);
   const [breatheScale, setBreatheScale] = useState(1);
 
   useEffect(() => {
+    if (!animationSettings.enabled || animationSettings.breathingIntensity === 0) {
+      setBreatheScale(1);
+      return;
+    }
+
     // Breathing animation
     const interval = setInterval(() => {
-      setBreatheScale(0.97 + Math.sin(Date.now() * 0.001) * 0.03);
+      setBreatheScale(1 + Math.sin(Date.now() * 0.001) * 0.03 * animationSettings.breathingIntensity);
     }, 50);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [animationSettings.enabled, animationSettings.breathingIntensity]);
 
   useEffect(() => {
     // Scale animation when node data changes
