@@ -1,5 +1,6 @@
 import { Node, Connection } from '../types';
 import { CoinMarketData, ExchangeData, NFTMarketData } from '../services/coinGeckoApi';
+import { calculateNodeSize, getNodeColor, generateParticles } from './visuals';
 
 export function transformCoinDataToNodes(
   coinData: CoinMarketData[], 
@@ -119,15 +120,6 @@ function createConnection(source: Node, target: Node): Connection {
   };
 }
 
-function generateParticles(count: number) {
-  return Array.from({ length: count }, (_, i) => ({
-    id: `particle-${i}`,
-    progress: Math.random(),
-    speed: 0.008 + Math.random() * 0.015,
-    size: 3 + Math.random() * 3
-  }));
-}
-
 export function transformNFTDataToNodes(nftData: NFTMarketData[]): Node[] {
   const nodes: Node[] = [];
   const platforms = Array.from(new Set(nftData.map(nft => nft.asset_platform_id)));
@@ -208,16 +200,6 @@ export function generateNFTConnections(nodes: Node[]): Connection[] {
   return connections;
 }
 
-function calculateNodeSize(liquidity: number): number {
-  // Logarithmic scaling for better visual distribution
-  const minSize = 25;
-  const maxSize = 100;
-  const logLiquidity = Math.log10(Math.max(1, liquidity));
-  const normalizedSize = (logLiquidity - 6) / (12 - 6); // Normalize between 1M and 1T
-  
-  return Math.max(minSize, Math.min(maxSize, minSize + normalizedSize * (maxSize - minSize)));
-}
-
 function getCoinCategory(name: string, rank: number): string {
   const name_lower = name.toLowerCase();
   
@@ -246,17 +228,4 @@ function getCoinCategory(name: string, rank: number): string {
   }
   
   return 'Altcoin';
-}
-
-function getNodeColor(change24h: number, change7d: number): string {
-  if (Math.abs(change24h) > 15 || Math.abs(change7d) > 30) {
-    return '#eab308'; // Yellow for high volatility
-  }
-  if (change24h > 3) {
-    return '#22c55e'; // Green for growth
-  }
-  if (change24h < -3) {
-    return '#ef4444'; // Red for decline
-  }
-  return '#6b7280'; // Gray for stable
 }

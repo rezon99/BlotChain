@@ -1,4 +1,5 @@
-import { Node, Connection, Particle } from '../types';
+import { Node, Connection } from '../types';
+import { getNodeColor, generateParticles } from './visuals';
 
 const CRYPTO_PROJECTS = [
   { name: 'Bitcoin', category: 'Layer 1', baseFlow: 2500000000 },
@@ -67,27 +68,6 @@ export function generateMockConnections(nodes: Node[]): Connection[] {
   return connections;
 }
 
-function generateParticles(count: number): Particle[] {
-  return Array.from({ length: count }, (_, i) => ({
-    id: `particle-${i}`,
-    progress: Math.random(),
-    speed: 0.01 + Math.random() * 0.02,
-    size: 3 + Math.random() * 4
-  }));
-}
-
-export function getNodeColor(change24h: number, change7d: number): string {
-  if (Math.abs(change24h) > 20 || Math.abs(change7d) > 40) {
-    return '#eab308'; // Yellow for volatility warning
-  }
-  if (change24h > 5) {
-    return '#22c55e'; // Green for growth
-  }
-  if (change24h < -5) {
-    return '#ef4444'; // Red for decline
-  }
-  return '#6b7280'; // Gray for stable
-}
 
 export function updateNodesData(nodes: Node[]): Node[] {
   return nodes.map(node => {

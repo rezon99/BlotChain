@@ -7,7 +7,6 @@ import {
   transformNFTDataToNodes,
   generateNFTConnections
 } from '../utils/dataTransformer';
-import { updateParticles } from '../utils/dataSimulator';
 
 export function useRealTimeData(mode: DashboardMode = 'crypto', refreshInterval: number = 30000) {
   const [nodes, setNodes] = useState<Node[]>([]);
@@ -58,15 +57,6 @@ export function useRealTimeData(mode: DashboardMode = 'crypto', refreshInterval:
     const interval = setInterval(fetchData, refreshInterval);
     return () => clearInterval(interval);
   }, [fetchData, refreshInterval]);
-
-  // Update particles more frequently for smooth animation
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setConnections(currentConnections => updateParticles(currentConnections));
-    }, 100);
-
-    return () => clearInterval(interval);
-  }, []);
 
   return {
     nodes,
