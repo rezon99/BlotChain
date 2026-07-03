@@ -170,6 +170,60 @@ export const Dashboard: React.FC = () => {
     localStorage.removeItem('blotchain_positions');
   }, []);
 
+  const exportToJson = useCallback(() => {
+    const data = {
+      timestamp: new Date().toISOString(),
+      mode,
+      nodes,
+      connections,
+      manualPositions
+    };
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `blotchain-export-${mode}-${new Date().getTime()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [mode, nodes, connections, manualPositions]);
+
+  const exportToPng = useCallback(() => {
+    const svg = document.querySelector('svg[viewBox="0 0 800 600"]') as SVGSVGElement;
+    if (!svg) return;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 1600; // High res
+    canvas.height = 1200;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Background
+    ctx.fillStyle = '#0f172a'; // slate-900
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(svgBlob);
+
+    const img = new Image();
+    img.onload = () => {
+      ctx.drawImage(img, 0, 0, 1600, 1200);
+      URL.revokeObjectURL(url);
+
+      const pngUrl = canvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = pngUrl;
+      a.download = `blotchain-snapshot-${mode}-${new Date().getTime()}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    };
+    img.src = url;
+  }, [mode]);
+
   const categories = useMemo(() => {
     const cats = new Set(nodes.filter(n => !n.isHub).map(n => n.category));
     return ['All', ...Array.from(cats)].sort();
@@ -297,6 +351,8 @@ export const Dashboard: React.FC = () => {
         animationSettings={animationSettings}
         setAnimationSettings={setAnimationSettings}
         onResetLayout={resetLayout}
+        onExportJson={exportToJson}
+        onExportPng={exportToPng}
       />
 
       <ComparisonPanel
