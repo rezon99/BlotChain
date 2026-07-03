@@ -19,16 +19,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   animationSettings,
   setAnimationSettings
 }) => {
-  if (!isOpen) return (
-    <button
-      onClick={() => onClose()}
-      className="absolute top-24 right-6 bg-gray-900 bg-opacity-90 backdrop-blur-sm border border-gray-700 rounded-lg p-3 text-gray-300 hover:text-white transition-colors z-20"
-      title="Open Settings"
-      aria-label="Open Settings"
-    >
-      <Settings size={20} />
-    </button>
-  );
+  if (!isOpen) return null;
 
   return (
     <div className="absolute top-24 right-6 w-80 bg-gray-900 bg-opacity-95 backdrop-blur-md border border-gray-700 rounded-xl p-5 shadow-2xl z-30">

@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { Node as NodeType, TooltipData, AnimationSettings } from '../types';
+import React, { useState, useCallback, useMemo } from 'react';
+import { Node as NodeType, TooltipData, AnimationSettings, DashboardMode } from '../types';
 import { Node } from './Node';
 import { Connection as ConnectionComponent } from './Connection';
 import { Tooltip } from './Tooltip';
@@ -9,10 +9,12 @@ import { ErrorDisplay } from './ErrorDisplay';
 import { SettingsPanel } from './SettingsPanel';
 import { ComparisonPanel } from './ComparisonPanel';
 import { useRealTimeData } from '../hooks/useRealTimeData';
+import { LayoutGrid, Coins, Image as ImageIcon, Settings } from 'lucide-react';
 
 export const Dashboard: React.FC = () => {
+  const [mode, setMode] = useState<DashboardMode>('crypto');
   const [refreshInterval, setRefreshInterval] = useState(30000);
-  const { nodes, connections, loading, error, lastUpdate, refetch } = useRealTimeData(refreshInterval);
+  const { nodes, connections, loading, error, lastUpdate, refetch } = useRealTimeData(mode, refreshInterval);
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
   const [animationSettings, setAnimationSettings] = useState<AnimationSettings>({
@@ -34,16 +36,21 @@ export const Dashboard: React.FC = () => {
     trigger: number;
   }>>([]);
 
+  const handleModeSwitch = useCallback((newMode: DashboardMode) => {
+    if (newMode !== mode) {
+      setMode(newMode);
+      setSelectedNodes(new Set());
+      setCategoryFilter('All');
+    }
+  }, [mode]);
+
   const handleNodeSelect = useCallback((nodeId: string) => {
     setSelectedNodes(prev => {
       const newSet = new Set(prev);
       if (newSet.has(nodeId)) {
         newSet.delete(nodeId);
       } else {
-        // If already have 2 selected, we might want to replace the oldest one or just clear and select new
-        // For comparison, let's limit to 2.
         if (newSet.size >= 2) {
-          // Keep the latest one and add the new one
           const arr = Array.from(newSet);
           return new Set([arr[1], nodeId]);
         }
@@ -70,7 +77,7 @@ export const Dashboard: React.FC = () => {
     setSelectedNodes(new Set());
   }, []);
 
-  const connectedNodeIds = React.useMemo(() => {
+  const connectedNodeIds = useMemo(() => {
     if (selectedNodes.size === 0) return [];
 
     const connected = new Set(Array.from(selectedNodes));
@@ -91,40 +98,36 @@ export const Dashboard: React.FC = () => {
     setCascadeEffects(prev => prev.filter(effect => effect.id !== effectId));
   }, []);
 
-  const categories = React.useMemo(() => {
-    const cats = new Set(nodes.map(n => n.category));
+  const categories = useMemo(() => {
+    const cats = new Set(nodes.filter(n => !n.isHub).map(n => n.category));
     return ['All', ...Array.from(cats)].sort();
   }, [nodes]);
 
-  const filteredNodes = React.useMemo(() => {
+  const filteredNodes = useMemo(() => {
     if (categoryFilter === 'All') return nodes;
-    return nodes.filter(n => n.category === categoryFilter);
+    return nodes.filter(n => n.category === categoryFilter || n.isHub);
   }, [nodes, categoryFilter]);
 
-  const filteredConnections = React.useMemo(() => {
-    if (categoryFilter === 'All') return connections;
+  const filteredConnections = useMemo(() => {
     const filteredNodeIds = new Set(filteredNodes.map(n => n.id));
     return connections.filter(c => filteredNodeIds.has(c.source) && filteredNodeIds.has(c.target));
-  }, [connections, filteredNodes, categoryFilter]);
+  }, [connections, filteredNodes]);
 
-  const selectedNodeData = React.useMemo(() => {
+  const selectedNodeData = useMemo(() => {
     return nodes.filter(n => selectedNodes.has(n.id));
   }, [nodes, selectedNodes]);
 
-  // Show loading spinner while fetching initial data
   if (loading && nodes.length === 0) {
     return <LoadingSpinner />;
   }
 
-  // Show error display if there's an error and no data
   if (error && nodes.length === 0) {
     return <ErrorDisplay error={error} onRetry={refetch} />;
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 overflow-hidden">
-      {/* Background grid */}
-      <div className="absolute inset-0 opacity-10">
+      <div className="absolute inset-0 opacity-10 pointer-events-none">
         <svg className="w-full h-full">
           <defs>
             <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
@@ -135,16 +138,39 @@ export const Dashboard: React.FC = () => {
         </svg>
       </div>
 
-      {/* Header */}
       <div className="relative z-10 p-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-white mb-2">
-              Real-time Cryptocurrency Liquidity Dashboard
-            </h1>
-            <p className="text-gray-400">
-              Live data from CoinGecko API • Last update: {lastUpdate.toLocaleTimeString()}
+        <div className="flex justify-between items-center gap-6">
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-1">
+              <LayoutGrid className="text-blue-500" size={28} />
+              <h1 className="text-3xl font-bold text-white">
+                BlotChain Dashboard
+              </h1>
+            </div>
+            <p className="text-gray-400 text-sm">
+              Live from CoinGecko • Updated {lastUpdate.toLocaleTimeString()}
             </p>
+          </div>
+
+          <div className="flex bg-slate-800/80 p-1 rounded-xl border border-slate-700 backdrop-blur-md">
+            <button
+              onClick={() => handleModeSwitch('crypto')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                mode === 'crypto' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              <Coins size={16} />
+              CRYPTOCURRENCY
+            </button>
+            <button
+              onClick={() => handleModeSwitch('nft')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                mode === 'nft' ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              <ImageIcon size={16} />
+              NFT COLLECTIONS
+            </button>
           </div>
           
           <div className="flex items-center gap-4">
@@ -155,7 +181,7 @@ export const Dashboard: React.FC = () => {
                   onClick={() => setCategoryFilter(cat)}
                   className={`px-3 py-1 text-xs rounded-md transition-all ${
                     categoryFilter === cat
-                      ? 'bg-blue-600 text-white shadow-lg'
+                      ? mode === 'crypto' ? 'bg-blue-600 text-white shadow-lg' : 'bg-purple-600 text-white shadow-lg'
                       : 'text-gray-400 hover:text-gray-200 hover:bg-slate-700'
                   }`}
                 >
@@ -164,39 +190,32 @@ export const Dashboard: React.FC = () => {
               ))}
             </div>
 
-            {error && (
-              <div className="text-yellow-400 text-sm">
-                ⚠ API Error (using cached data)
-              </div>
-            )}
-            
-            {loading && (
-              <div className="flex items-center gap-2 text-blue-400 text-sm">
-                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                Updating...
-              </div>
-            )}
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              className="p-2 bg-slate-800 hover:bg-slate-700 text-gray-300 rounded-lg border border-slate-700 transition-colors"
+              title="Settings"
+            >
+              <Settings size={20} />
+            </button>
             
             {selectedNodes.size > 0 && (
               <button
                 onClick={clearSelection}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                className="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-900/50 rounded-lg transition-all text-sm font-bold"
               >
-                Clear Selection ({selectedNodes.size})
+                CLEAR ({selectedNodes.size})
               </button>
             )}
           </div>
         </div>
       </div>
 
-      {/* Main visualization */}
       <div className="relative">
         <svg 
           viewBox="0 0 800 600" 
           className="w-full h-screen max-w-full"
           style={{ minHeight: '600px' }}
         >
-          {/* Connections */}
           {filteredConnections.map(connection => (
             <ConnectionComponent
               key={connection.id}
@@ -211,7 +230,6 @@ export const Dashboard: React.FC = () => {
             />
           ))}
           
-          {/* Nodes */}
           {filteredNodes.map(node => (
             <Node
               key={node.id}
@@ -227,7 +245,6 @@ export const Dashboard: React.FC = () => {
             />
           ))}
           
-          {/* Cascade effects */}
           {cascadeEffects.map(effect => (
             <CascadeEffect
               key={effect.id}
@@ -238,72 +255,66 @@ export const Dashboard: React.FC = () => {
             />
           ))}
         </svg>
+
+        {loading && nodes.length > 0 && (
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-blue-600/90 text-white px-4 py-1 rounded-full text-xs font-bold animate-pulse">
+            UPDATING LIVE DATA...
+          </div>
+        )}
       </div>
 
-      {/* Tooltip */}
       <Tooltip data={tooltip} />
 
-      {/* Settings Panel */}
       <SettingsPanel
         isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(!isSettingsOpen)}
+        onClose={() => setIsSettingsOpen(false)}
         refreshInterval={refreshInterval}
         setRefreshInterval={setRefreshInterval}
         animationSettings={animationSettings}
         setAnimationSettings={setAnimationSettings}
       />
 
-      {/* Comparison Panel */}
       <ComparisonPanel
         selectedNodes={selectedNodeData}
         onClear={clearSelection}
       />
 
-      {/* Legend */}
       <div className="absolute bottom-6 left-6 bg-gray-900 bg-opacity-90 backdrop-blur-sm border border-gray-700 rounded-lg p-4">
         <h3 className="text-white font-semibold mb-3">Legend</h3>
         <div className="space-y-2 text-sm">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-green-500" />
-            <span className="text-gray-300">Growing (+5%)</span>
+            <span className="text-gray-300">Growing ({mode === 'crypto' ? '+5%' : 'Bullish'})</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-red-500" />
-            <span className="text-gray-300">Declining (-5%)</span>
+            <span className="text-gray-300">Declining ({mode === 'crypto' ? '-5%' : 'Bearish'})</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-yellow-500" />
             <span className="text-gray-300">High Volatility (±20%)</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-gray-500" />
-            <span className="text-gray-300">Stable (±5%)</span>
+            <div className="w-3 h-3 rounded-full bg-blue-500" />
+            <span className="text-gray-300">{mode === 'crypto' ? 'Stable' : 'Hub / Chain'}</span>
           </div>
         </div>
         
         <div className="mt-4 pt-3 border-t border-gray-700">
           <div className="flex items-center gap-2 mb-2">
             <div className="w-4 h-0.5 bg-blue-500" />
-            <span className="text-gray-300 text-sm">Liquidity Inflow</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-0.5 bg-orange-500" />
-            <span className="text-gray-300 text-sm">Liquidity Outflow</span>
+            <span className="text-gray-300 text-sm">{mode === 'crypto' ? 'Liquidity Inflow' : 'Collection Flow'}</span>
           </div>
         </div>
       </div>
 
-      {/* Status indicator */}
-      <div className="absolute top-6 right-6 bg-gray-900 bg-opacity-90 backdrop-blur-sm border border-gray-700 rounded-lg p-3">
+      <div className="absolute top-24 right-6 bg-gray-900 bg-opacity-90 backdrop-blur-sm border border-gray-700 rounded-lg p-3">
         <div className="flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-          <span className="text-green-400 text-sm">Live Data</span>
+          <span className="text-green-400 text-sm font-bold uppercase tracking-tighter">Live Status</span>
         </div>
-        <div className="text-gray-400 text-xs mt-1">
-          Last update: {lastUpdate.toLocaleTimeString()}
-        </div>
-        <div className="text-gray-500 text-xs">
-          {nodes.length} assets • {connections.length} connections
+        <div className="text-gray-500 text-[10px] mt-1 font-mono uppercase">
+          {nodes.length} {mode === 'crypto' ? 'Assets' : 'Collections'} • {connections.length} Links
         </div>
       </div>
     </div>

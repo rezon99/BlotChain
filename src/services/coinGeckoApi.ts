@@ -12,6 +12,9 @@ interface CoinMarketData {
   price_change_percentage_7d_in_currency: number;
   total_volume: number;
   circulating_supply: number;
+  sparkline_in_7d?: {
+    price: number[];
+  };
 }
 
 interface ExchangeData {
@@ -36,6 +39,30 @@ interface MarketChartData {
   prices: [number, number][];
   market_caps: [number, number][];
   total_volumes: [number, number][];
+}
+
+interface NFTMarketData {
+  id: string;
+  contract_address: string;
+  asset_platform_id: string;
+  name: string;
+  symbol: string;
+  image: {
+    small: string;
+  };
+  floor_price: {
+    native_currency: number;
+    usd: number;
+  };
+  market_cap: {
+    native_currency: number;
+    usd: number;
+  };
+  volume_24h: {
+    native_currency: number;
+    usd: number;
+  };
+  floor_price_in_usd_24h_percentage_change: number;
 }
 
 class CoinGeckoApiService {
@@ -91,7 +118,7 @@ class CoinGeckoApiService {
       order: 'market_cap_desc',
       per_page: limit.toString(),
       page: '1',
-      sparkline: 'false',
+      sparkline: 'true',
       price_change_percentage: '24h,7d'
     });
   }
@@ -114,7 +141,15 @@ class CoinGeckoApiService {
       interval: 'daily'
     });
   }
+
+  async getNFTMarkets(limit: number = 20): Promise<NFTMarketData[]> {
+    return this.makeRequest<NFTMarketData[]>('/nfts/markets', {
+      order: 'market_cap_usd_desc',
+      per_page: limit.toString(),
+      page: '1'
+    });
+  }
 }
 
 export const coinGeckoApi = new CoinGeckoApiService();
-export type { CoinMarketData, ExchangeData, GlobalMarketData };
+export type { CoinMarketData, ExchangeData, GlobalMarketData, NFTMarketData };

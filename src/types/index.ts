@@ -12,6 +12,11 @@ export interface Node {
   color: string;
   isSelected: boolean;
   lastUpdated: number;
+  // NFT specific
+  isHub?: boolean;
+  volume24h?: number;
+  image?: string;
+  sparkline?: number[];
 }
 
 export interface Connection {
@@ -42,3 +47,5 @@ export interface AnimationSettings {
   particleSpeed: number;
   breathingIntensity: number;
 }
+
+export type DashboardMode = 'crypto' | 'nft';
