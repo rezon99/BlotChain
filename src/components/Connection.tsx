@@ -1,16 +1,31 @@
 import React from 'react';
-import { Connection as ConnectionType, Node, Particle as ParticleType } from '../types';
+import { Connection as ConnectionType, Node, Particle as ParticleType, AnimationSettings } from '../types';
 
 interface ConnectionProps {
   connection: ConnectionType;
   nodes: Node[];
   isHighlighted: boolean;
+  animationSettings: AnimationSettings;
 }
 
 const Particle: React.FC<{ 
   particle: ParticleType; 
   path: string;
-}> = ({ particle, path }) => {
+  animationSettings: AnimationSettings;
+}> = ({ particle, path, animationSettings }) => {
+  if (!animationSettings.enabled) return null;
+
+  const baseDuration = 3;
+  const duration = animationSettings.particleSpeed > 0
+    ? baseDuration / animationSettings.particleSpeed
+    : 0;
+
+  if (duration === 0) return null;
+
+  // Calculate initial offset to start particle at the correct progress
+  // Using a negative begin value allows starting at an offset within the duration
+  const beginValue = -particle.progress * duration;
+
   return (
     <circle
       r={particle.size}
@@ -21,9 +36,9 @@ const Particle: React.FC<{
       }}
     >
       <animateMotion
-        dur="3s"
+        dur={`${duration}s`}
         repeatCount="indefinite"
-        begin={`${particle.progress * 3}s`}
+        begin={`${beginValue}s`}
       >
         <mpath href={`#${path.replace('#', '')}`} />
       </animateMotion>
@@ -34,7 +49,8 @@ const Particle: React.FC<{
 export const Connection: React.FC<ConnectionProps> = React.memo(({
   connection, 
   nodes, 
-  isHighlighted 
+  isHighlighted,
+  animationSettings
 }) => {
   const sourceNode = nodes.find(n => n.id === connection.source);
   const targetNode = nodes.find(n => n.id === connection.target);
@@ -105,12 +121,12 @@ export const Connection: React.FC<ConnectionProps> = React.memo(({
       </path>
       
       {/* Moving particles */}
-      {connection.particles.map(particle => (
+      {animationSettings.enabled && connection.particles.map(particle => (
         <Particle
           key={particle.id}
           particle={particle}
           path={`#${pathId.replace('#', '')}`}
-          color={color}
+          animationSettings={animationSettings}
         />
       ))}
       
