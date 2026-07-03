@@ -1,16 +1,30 @@
-import React, { useState, useCallback } from 'react';
-import { Node as NodeType, TooltipData } from '../types';
+import React, { useState, useCallback, useMemo } from 'react';
+import { Node as NodeType, TooltipData, AnimationSettings, DashboardMode } from '../types';
 import { Node } from './Node';
 import { Connection as ConnectionComponent } from './Connection';
 import { Tooltip } from './Tooltip';
 import { CascadeEffect } from './CascadeEffect';
 import { LoadingSpinner } from './LoadingSpinner';
 import { ErrorDisplay } from './ErrorDisplay';
+import { SettingsPanel } from './SettingsPanel';
+import { ComparisonPanel } from './ComparisonPanel';
+import { Header } from './Header';
+import { Legend } from './Legend';
+import { LiveStatus } from './LiveStatus';
 import { useRealTimeData } from '../hooks/useRealTimeData';
 
 export const Dashboard: React.FC = () => {
-  const { nodes, connections, loading, error, lastUpdate, refetch } = useRealTimeData();
+  const [mode, setMode] = useState<DashboardMode>('crypto');
+  const [refreshInterval, setRefreshInterval] = useState(30000);
+  const { nodes, connections, loading, error, lastUpdate, refetch } = useRealTimeData(mode, refreshInterval);
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
+  const [categoryFilter, setCategoryFilter] = useState<string>('All');
+  const [animationSettings, setAnimationSettings] = useState<AnimationSettings>({
+    enabled: true,
+    particleSpeed: 1,
+    breathingIntensity: 1
+  });
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [tooltip, setTooltip] = useState<TooltipData>({
     node: {} as NodeType,
     x: 0,
@@ -24,12 +38,24 @@ export const Dashboard: React.FC = () => {
     trigger: number;
   }>>([]);
 
+  const handleModeSwitch = useCallback((newMode: DashboardMode) => {
+    if (newMode !== mode) {
+      setMode(newMode);
+      setSelectedNodes(new Set());
+      setCategoryFilter('All');
+    }
+  }, [mode]);
+
   const handleNodeSelect = useCallback((nodeId: string) => {
     setSelectedNodes(prev => {
       const newSet = new Set(prev);
       if (newSet.has(nodeId)) {
         newSet.delete(nodeId);
       } else {
+        if (newSet.size >= 2) {
+          const arr = Array.from(newSet);
+          return new Set([arr[1], nodeId]);
+        }
         newSet.add(nodeId);
       }
       return newSet;
@@ -53,40 +79,57 @@ export const Dashboard: React.FC = () => {
     setSelectedNodes(new Set());
   }, []);
 
-  const getConnectedNodeIds = (nodeIds: string[]): string[] => {
-    const connected = new Set(nodeIds);
+  const connectedNodeIds = useMemo(() => {
+    if (selectedNodes.size === 0) return [];
+
+    const connected = new Set(Array.from(selectedNodes));
+
     connections.forEach(conn => {
-      if (nodeIds.includes(conn.source)) {
+      if (selectedNodes.has(conn.source)) {
         connected.add(conn.target);
       }
-      if (nodeIds.includes(conn.target)) {
+      if (selectedNodes.has(conn.target)) {
         connected.add(conn.source);
       }
     });
-    return Array.from(connected);
-  };
 
-  const connectedNodeIds = selectedNodes.size > 0 ? 
-    getConnectedNodeIds(Array.from(selectedNodes)) : [];
+    return Array.from(connected);
+  }, [selectedNodes, connections]);
 
   const handleCascadeComplete = useCallback((effectId: string) => {
     setCascadeEffects(prev => prev.filter(effect => effect.id !== effectId));
   }, []);
 
-  // Show loading spinner while fetching initial data
+  const categories = useMemo(() => {
+    const cats = new Set(nodes.filter(n => !n.isHub).map(n => n.category));
+    return ['All', ...Array.from(cats)].sort();
+  }, [nodes]);
+
+  const filteredNodes = useMemo(() => {
+    if (categoryFilter === 'All') return nodes;
+    return nodes.filter(n => n.category === categoryFilter || n.isHub);
+  }, [nodes, categoryFilter]);
+
+  const filteredConnections = useMemo(() => {
+    const filteredNodeIds = new Set(filteredNodes.map(n => n.id));
+    return connections.filter(c => filteredNodeIds.has(c.source) && filteredNodeIds.has(c.target));
+  }, [connections, filteredNodes]);
+
+  const selectedNodeData = useMemo(() => {
+    return nodes.filter(n => selectedNodes.has(n.id));
+  }, [nodes, selectedNodes]);
+
   if (loading && nodes.length === 0) {
     return <LoadingSpinner />;
   }
 
-  // Show error display if there's an error and no data
   if (error && nodes.length === 0) {
     return <ErrorDisplay error={error} onRetry={refetch} />;
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 overflow-hidden">
-      {/* Background grid */}
-      <div className="absolute inset-0 opacity-10">
+      <div className="absolute inset-0 opacity-10 pointer-events-none">
         <svg className="w-full h-full">
           <defs>
             <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
@@ -97,67 +140,39 @@ export const Dashboard: React.FC = () => {
         </svg>
       </div>
 
-      {/* Header */}
-      <div className="relative z-10 p-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-white mb-2">
-              Real-time Cryptocurrency Liquidity Dashboard
-            </h1>
-            <p className="text-gray-400">
-              Live data from CoinGecko API • Last update: {lastUpdate.toLocaleTimeString()}
-            </p>
-          </div>
-          
-          <div className="flex items-center gap-4">
-            {error && (
-              <div className="text-yellow-400 text-sm">
-                ⚠ API Error (using cached data)
-              </div>
-            )}
-            
-            {loading && (
-              <div className="flex items-center gap-2 text-blue-400 text-sm">
-                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                Updating...
-              </div>
-            )}
-            
-            {selectedNodes.size > 0 && (
-              <button
-                onClick={clearSelection}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-              >
-                Clear Selection ({selectedNodes.size})
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
+      <Header
+        lastUpdate={lastUpdate}
+        mode={mode}
+        onModeSwitch={handleModeSwitch}
+        categories={categories}
+        categoryFilter={categoryFilter}
+        setCategoryFilter={setCategoryFilter}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        selectedCount={selectedNodes.size}
+        onClearSelection={clearSelection}
+      />
 
-      {/* Main visualization */}
       <div className="relative">
         <svg 
           viewBox="0 0 800 600" 
           className="w-full h-screen max-w-full"
           style={{ minHeight: '600px' }}
         >
-          {/* Connections */}
-          {connections.map(connection => (
+          {filteredConnections.map(connection => (
             <ConnectionComponent
               key={connection.id}
               connection={connection}
-              nodes={nodes}
+              nodes={filteredNodes}
               isHighlighted={
                 selectedNodes.has(connection.source) || 
                 selectedNodes.has(connection.target) ||
                 selectedNodes.size === 0
               }
+              animationSettings={animationSettings}
             />
           ))}
           
-          {/* Nodes */}
-          {nodes.map(node => (
+          {filteredNodes.map(node => (
             <Node
               key={node.id}
               node={node}
@@ -168,10 +183,10 @@ export const Dashboard: React.FC = () => {
                 connectedNodeIds.includes(node.id) || 
                 selectedNodes.size === 0
               }
+              animationSettings={animationSettings}
             />
           ))}
           
-          {/* Cascade effects */}
           {cascadeEffects.map(effect => (
             <CascadeEffect
               key={effect.id}
@@ -182,58 +197,37 @@ export const Dashboard: React.FC = () => {
             />
           ))}
         </svg>
+
+        {loading && nodes.length > 0 && (
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-blue-600/90 text-white px-4 py-1 rounded-full text-xs font-bold animate-pulse">
+            UPDATING LIVE DATA...
+          </div>
+        )}
       </div>
 
-      {/* Tooltip */}
       <Tooltip data={tooltip} />
 
-      {/* Legend */}
-      <div className="absolute bottom-6 left-6 bg-gray-900 bg-opacity-90 backdrop-blur-sm border border-gray-700 rounded-lg p-4">
-        <h3 className="text-white font-semibold mb-3">Legend</h3>
-        <div className="space-y-2 text-sm">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-green-500" />
-            <span className="text-gray-300">Growing (+5%)</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-red-500" />
-            <span className="text-gray-300">Declining (-5%)</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-yellow-500" />
-            <span className="text-gray-300">High Volatility (±20%)</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-gray-500" />
-            <span className="text-gray-300">Stable (±5%)</span>
-          </div>
-        </div>
-        
-        <div className="mt-4 pt-3 border-t border-gray-700">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-4 h-0.5 bg-blue-500" />
-            <span className="text-gray-300 text-sm">Liquidity Inflow</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-0.5 bg-orange-500" />
-            <span className="text-gray-300 text-sm">Liquidity Outflow</span>
-          </div>
-        </div>
-      </div>
+      <SettingsPanel
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        refreshInterval={refreshInterval}
+        setRefreshInterval={setRefreshInterval}
+        animationSettings={animationSettings}
+        setAnimationSettings={setAnimationSettings}
+      />
 
-      {/* Status indicator */}
-      <div className="absolute top-6 right-6 bg-gray-900 bg-opacity-90 backdrop-blur-sm border border-gray-700 rounded-lg p-3">
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-          <span className="text-green-400 text-sm">Live Data</span>
-        </div>
-        <div className="text-gray-400 text-xs mt-1">
-          Last update: {lastUpdate.toLocaleTimeString()}
-        </div>
-        <div className="text-gray-500 text-xs">
-          {nodes.length} assets • {connections.length} connections
-        </div>
-      </div>
+      <ComparisonPanel
+        selectedNodes={selectedNodeData}
+        onClear={clearSelection}
+      />
+
+      <Legend mode={mode} />
+
+      <LiveStatus
+        nodeCount={nodes.length}
+        connectionCount={connections.length}
+        mode={mode}
+      />
     </div>
   );
 };

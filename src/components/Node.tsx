@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Node as NodeType } from '../types';
+import { Node as NodeType, AnimationSettings } from '../types';
 
 interface NodeProps {
   node: NodeType;
@@ -7,26 +7,33 @@ interface NodeProps {
   onHover: (node: NodeType, x: number, y: number) => void;
   onHoverEnd: () => void;
   isConnected: boolean;
+  animationSettings: AnimationSettings;
 }
 
-export const Node: React.FC<NodeProps> = ({ 
+export const Node: React.FC<NodeProps> = React.memo(({
   node, 
   onSelect, 
   onHover, 
   onHoverEnd, 
-  isConnected 
+  isConnected,
+  animationSettings
 }) => {
   const [scale, setScale] = useState(1);
   const [breatheScale, setBreatheScale] = useState(1);
 
   useEffect(() => {
+    if (!animationSettings.enabled || animationSettings.breathingIntensity === 0) {
+      setBreatheScale(1);
+      return;
+    }
+
     // Breathing animation
     const interval = setInterval(() => {
-      setBreatheScale(0.97 + Math.sin(Date.now() * 0.001) * 0.03);
+      setBreatheScale(1 + Math.sin(Date.now() * 0.001) * 0.03 * animationSettings.breathingIntensity);
     }, 50);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [animationSettings.enabled, animationSettings.breathingIntensity]);
 
   useEffect(() => {
     // Scale animation when node data changes
@@ -53,30 +60,64 @@ export const Node: React.FC<NodeProps> = ({
       }}
       onMouseLeave={onHoverEnd}
     >
-      <circle
-        cx={node.x}
-        cy={node.y}
-        r={node.size * scale * breatheScale}
-        fill={node.color}
-        opacity={opacity}
-        style={{
-          transition: 'all 0.8s ease-in-out',
-          strokeWidth: node.isSelected ? 3 : 0,
-          stroke: node.isSelected ? '#ffffff' : 'none'
-        }}
-      />
+      {node.image ? (
+        <g>
+          <defs>
+            <clipPath id={`clip-${node.id}`}>
+              <circle cx={node.x} cy={node.y} r={node.size * scale * breatheScale} />
+            </clipPath>
+          </defs>
+          <image
+            xlinkHref={node.image}
+            x={node.x - node.size * scale * breatheScale}
+            y={node.y - node.size * scale * breatheScale}
+            width={node.size * 2 * scale * breatheScale}
+            height={node.size * 2 * scale * breatheScale}
+            clipPath={`url(#clip-${node.id})`}
+          />
+          <circle
+            cx={node.x}
+            cy={node.y}
+            r={node.size * scale * breatheScale}
+            fill="none"
+            stroke={node.color}
+            strokeWidth={node.isSelected ? 4 : 2}
+            opacity={opacity}
+            style={{
+              transition: 'all 0.8s ease-in-out',
+              pointerEvents: 'none'
+            }}
+          />
+        </g>
+      ) : (
+        <circle
+          cx={node.x}
+          cy={node.y}
+          r={node.size * scale * breatheScale}
+          fill={node.color}
+          opacity={opacity}
+          style={{
+            transition: 'all 0.8s ease-in-out',
+            strokeWidth: node.isSelected ? 3 : 0,
+            stroke: node.isSelected ? '#ffffff' : 'none'
+          }}
+        />
+      )}
       
       {/* Inner glow effect */}
-      <circle
-        cx={node.x}
-        cy={node.y}
-        r={node.size * scale * breatheScale * 0.7}
-        fill={node.color}
-        opacity={0.3}
-        style={{
-          transition: 'all 0.8s ease-in-out'
-        }}
-      />
+      {!node.image && (
+        <circle
+          cx={node.x}
+          cy={node.y}
+          r={node.size * scale * breatheScale * 0.7}
+          fill={node.color}
+          opacity={0.3}
+          style={{
+            transition: 'all 0.8s ease-in-out',
+            pointerEvents: 'none'
+          }}
+        />
+      )}
       
       {/* Node label */}
       <text
@@ -110,4 +151,6 @@ export const Node: React.FC<NodeProps> = ({
       </text>
     </g>
   );
-};
+});
+
+Node.displayName = 'Node';

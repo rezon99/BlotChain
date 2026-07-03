@@ -1,5 +1,6 @@
 import { Node, Connection } from '../types';
-import { CoinMarketData, ExchangeData } from '../services/coinGeckoApi';
+import { CoinMarketData, ExchangeData, NFTMarketData } from '../services/coinGeckoApi';
+import { calculateNodeSize, getNodeColor, generateParticles } from './visuals';
 
 export function transformCoinDataToNodes(
   coinData: CoinMarketData[], 
@@ -31,32 +32,36 @@ export function transformCoinDataToNodes(
     const angle = (index * 2 * Math.PI) / allData.length;
     const radius = 180 + (index % 3) * 80; // Varied radius for visual appeal
     
-    // Calculate liquidity based on market cap and volume
+    // Calculate liquidity based on market cap and volume with safety checks
+    const marketCap = item.market_cap || 0;
+    const totalVolume = item.total_volume || 0;
     const liquidity = item.type === 'coin' 
-      ? item.market_cap + item.total_volume 
-      : item.volume;
+      ? marketCap + totalVolume
+      : item.volume || 0;
     
     // Determine category
     const category = item.type === 'exchange' 
       ? 'Exchange'
-      : getCoinCategory(item.name, item.market_cap_rank);
+      : getCoinCategory(item.name || 'Unknown', item.market_cap_rank || 999);
 
     return {
-      id: item.id,
-      name: item.name,
+      id: item.id || `unknown-${index}`,
+      name: item.name || 'Unknown Asset',
       category,
+      price: item.current_price || 0,
       liquidity,
-      change24h: item.price_change_percentage_24h || 0,
-      change7d: item.price_change_percentage_7d_in_currency || 0,
+      change24h: item.price_change_percentage_24h ?? 0,
+      change7d: item.price_change_percentage_7d_in_currency ?? 0,
       x: 400 + Math.cos(angle) * radius,
       y: 300 + Math.sin(angle) * radius,
       size: calculateNodeSize(liquidity),
       color: getNodeColor(
-        item.price_change_percentage_24h || 0, 
-        item.price_change_percentage_7d_in_currency || 0
+        item.price_change_percentage_24h ?? 0,
+        item.price_change_percentage_7d_in_currency ?? 0
       ),
       isSelected: false,
-      lastUpdated: Date.now()
+      lastUpdated: Date.now(),
+      sparkline: item.sparkline_in_7d?.price
     };
   });
 }
@@ -115,23 +120,84 @@ function createConnection(source: Node, target: Node): Connection {
   };
 }
 
-function generateParticles(count: number) {
-  return Array.from({ length: count }, (_, i) => ({
-    id: `particle-${i}`,
-    progress: Math.random(),
-    speed: 0.008 + Math.random() * 0.015,
-    size: 3 + Math.random() * 3
-  }));
+export function transformNFTDataToNodes(nftData: NFTMarketData[]): Node[] {
+  const nodes: Node[] = [];
+  const platforms = Array.from(new Set(nftData.map(nft => nft.asset_platform_id)));
+
+  // Create platform hub nodes
+  const platformHubs: Record<string, Node> = {};
+  platforms.forEach((platform, index) => {
+    const angle = (index * 2 * Math.PI) / platforms.length;
+    const radius = 150;
+
+    const hubNode: Node = {
+      id: `hub-${platform}`,
+      name: platform.charAt(0).toUpperCase() + platform.slice(1),
+      category: 'Blockchain',
+      price: 0,
+      liquidity: 0,
+      change24h: 0,
+      change7d: 0,
+      x: 400 + Math.cos(angle) * radius,
+      y: 300 + Math.sin(angle) * radius,
+      size: 60,
+      color: '#3b82f6',
+      isSelected: false,
+      lastUpdated: Date.now(),
+      isHub: true
+    };
+    platformHubs[platform] = hubNode;
+    nodes.push(hubNode);
+  });
+
+  // Create NFT collection nodes
+  nftData.forEach((nft) => {
+    const hub = platformHubs[nft.asset_platform_id];
+    const angle = Math.random() * 2 * Math.PI;
+    const distance = 80 + Math.random() * 100;
+
+    nodes.push({
+      id: nft.id,
+      name: nft.name,
+      category: nft.asset_platform_id,
+      price: nft.floor_price.usd,
+      liquidity: nft.market_cap.usd,
+      change24h: nft.floor_price_in_usd_24h_percentage_change,
+      change7d: 0, // Not available in simple market data
+      x: hub.x + Math.cos(angle) * distance,
+      y: hub.y + Math.sin(angle) * distance,
+      size: calculateNodeSize(nft.market_cap.usd),
+      color: getNodeColor(nft.floor_price_in_usd_24h_percentage_change, 0),
+      isSelected: false,
+      lastUpdated: Date.now(),
+      volume24h: nft.volume_24h.usd,
+      image: nft.image.small
+    });
+  });
+
+  return nodes;
 }
 
-function calculateNodeSize(liquidity: number): number {
-  // Logarithmic scaling for better visual distribution
-  const minSize = 25;
-  const maxSize = 100;
-  const logLiquidity = Math.log10(Math.max(1, liquidity));
-  const normalizedSize = (logLiquidity - 6) / (12 - 6); // Normalize between 1M and 1T
-  
-  return Math.max(minSize, Math.min(maxSize, minSize + normalizedSize * (maxSize - minSize)));
+export function generateNFTConnections(nodes: Node[]): Connection[] {
+  const connections: Connection[] = [];
+  const hubs = nodes.filter(n => n.isHub);
+  const collections = nodes.filter(n => !n.isHub);
+
+  collections.forEach(collection => {
+    const hub = hubs.find(h => h.id === `hub-${collection.category}`);
+    if (hub) {
+      connections.push({
+        id: `${hub.id}-${collection.id}`,
+        source: hub.id,
+        target: collection.id,
+        flow: collection.volume24h || 0,
+        direction: 'out',
+        particles: generateParticles(Math.min(5, Math.max(1, Math.floor((collection.volume24h || 0) / 100000))))
+      });
+    }
+  });
+
+  return connections;
 }
 
 function getCoinCategory(name: string, rank: number): string {
@@ -162,17 +228,4 @@ function getCoinCategory(name: string, rank: number): string {
   }
   
   return 'Altcoin';
-}
-
-function getNodeColor(change24h: number, change7d: number): string {
-  if (Math.abs(change24h) > 15 || Math.abs(change7d) > 30) {
-    return '#eab308'; // Yellow for high volatility
-  }
-  if (change24h > 3) {
-    return '#22c55e'; // Green for growth
-  }
-  if (change24h < -3) {
-    return '#ef4444'; // Red for decline
-  }
-  return '#6b7280'; // Gray for stable
 }
