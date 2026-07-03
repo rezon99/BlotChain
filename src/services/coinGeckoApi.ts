@@ -66,6 +66,9 @@ interface NFTMarketData {
 }
 
 class CoinGeckoApiService {
+  private cache: Map<string, { data: unknown; timestamp: number }> = new Map();
+  private readonly CACHE_TTL = 30000; // 30 seconds
+
   private async makeRequest<T>(endpoint: string, params: Record<string, string> = {}): Promise<T> {
     if (!BASE_URL) {
       throw new Error('CoinGecko API base URL is not configured. Please check your environment variables.');
@@ -82,6 +85,13 @@ class CoinGeckoApiService {
       url.searchParams.append(key, value);
     });
 
+    const cacheKey = url.toString();
+    const cached = this.cache.get(cacheKey);
+
+    if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+      return cached.data as T;
+    }
+
     try {
       const response = await fetch(url.toString(), {
         headers: {
@@ -90,6 +100,8 @@ class CoinGeckoApiService {
       });
 
       if (response.status === 429) {
+        // Return cached data if available even if expired on rate limit
+        if (cached) return cached.data as T;
         throw new Error('CoinGecko API rate limit exceeded. Please try again later or use an API key.');
       }
 
@@ -102,7 +114,9 @@ class CoinGeckoApiService {
         );
       }
 
-      return await response.json();
+      const data = await response.json();
+      this.cache.set(cacheKey, { data, timestamp: Date.now() });
+      return data;
     } catch (error) {
       if (error instanceof TypeError && error.message === 'Failed to fetch') {
         throw new Error('Network error: Unable to connect to CoinGecko API. Please check your internet connection.');

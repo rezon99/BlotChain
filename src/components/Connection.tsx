@@ -22,6 +22,10 @@ const Particle: React.FC<{
 
   if (duration === 0) return null;
 
+  // Calculate initial offset to start particle at the correct progress
+  // Using a negative begin value allows starting at an offset within the duration
+  const beginValue = -particle.progress * duration;
+
   return (
     <circle
       r={particle.size}
@@ -34,7 +38,7 @@ const Particle: React.FC<{
       <animateMotion
         dur={`${duration}s`}
         repeatCount="indefinite"
-        begin={`${particle.progress * duration}s`}
+        begin={`${beginValue}s`}
       >
         <mpath href={`#${path.replace('#', '')}`} />
       </animateMotion>
