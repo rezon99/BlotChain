@@ -1,16 +1,32 @@
 import React from 'react';
-import { Connection as ConnectionType, Node, Particle as ParticleType } from '../types';
+import { Connection as ConnectionType, Node, Particle as ParticleType, AnimationSettings } from '../types';
 
 interface ConnectionProps {
   connection: ConnectionType;
   nodes: Node[];
   isHighlighted: boolean;
+  animationSettings: AnimationSettings;
+  isDragging?: boolean;
 }
 
 const Particle: React.FC<{ 
   particle: ParticleType; 
   path: string;
-}> = ({ particle, path }) => {
+  animationSettings: AnimationSettings;
+}> = ({ particle, path, animationSettings }) => {
+  if (!animationSettings.enabled) return null;
+
+  const baseDuration = 3;
+  const duration = animationSettings.particleSpeed > 0
+    ? baseDuration / animationSettings.particleSpeed
+    : 0;
+
+  if (duration === 0) return null;
+
+  // Calculate initial offset to start particle at the correct progress
+  // Using a negative begin value allows starting at an offset within the duration
+  const beginValue = -particle.progress * duration;
+
   return (
     <circle
       r={particle.size}
@@ -21,9 +37,9 @@ const Particle: React.FC<{
       }}
     >
       <animateMotion
-        dur="3s"
+        dur={`${duration}s`}
         repeatCount="indefinite"
-        begin={`${particle.progress * 3}s`}
+        begin={`${beginValue}s`}
       >
         <mpath href={`#${path.replace('#', '')}`} />
       </animateMotion>
@@ -34,7 +50,9 @@ const Particle: React.FC<{
 export const Connection: React.FC<ConnectionProps> = React.memo(({
   connection, 
   nodes, 
-  isHighlighted 
+  isHighlighted,
+  animationSettings,
+  isDragging
 }) => {
   const sourceNode = nodes.find(n => n.id === connection.source);
   const targetNode = nodes.find(n => n.id === connection.target);
@@ -58,6 +76,7 @@ export const Connection: React.FC<ConnectionProps> = React.memo(({
   const strokeWidth = Math.max(2, Math.min(12, connection.flow / 5000000));
   const color = connection.direction === 'in' ? '#3b82f6' : '#f97316';
   const opacity = isHighlighted ? 1 : 0.6;
+  const isDraggingAny = isDragging || false;
 
   return (
     <g>
@@ -79,7 +98,7 @@ export const Connection: React.FC<ConnectionProps> = React.memo(({
         strokeLinecap="round"
         opacity={opacity}
         style={{
-          transition: 'all 0.8s ease-in-out',
+          transition: isDraggingAny ? 'none' : 'all 0.8s ease-in-out',
           filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))'
         }}
       />
@@ -93,7 +112,7 @@ export const Connection: React.FC<ConnectionProps> = React.memo(({
         strokeLinecap="round"
         opacity={0.2}
         style={{
-          transition: 'all 0.8s ease-in-out'
+          transition: isDraggingAny ? 'none' : 'all 0.8s ease-in-out'
         }}
       >
         <animate
@@ -105,12 +124,12 @@ export const Connection: React.FC<ConnectionProps> = React.memo(({
       </path>
       
       {/* Moving particles */}
-      {connection.particles.map(particle => (
+      {animationSettings.enabled && connection.particles.map(particle => (
         <Particle
           key={particle.id}
           particle={particle}
           path={`#${pathId.replace('#', '')}`}
-          color={color}
+          animationSettings={animationSettings}
         />
       ))}
       
@@ -122,7 +141,7 @@ export const Connection: React.FC<ConnectionProps> = React.memo(({
         fill={color}
         opacity={opacity * 0.8}
         style={{
-          transition: 'all 0.8s ease-in-out'
+          transition: isDraggingAny ? 'none' : 'all 0.8s ease-in-out'
         }}
       />
     </g>
