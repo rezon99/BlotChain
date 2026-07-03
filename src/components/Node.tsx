@@ -60,30 +60,64 @@ export const Node: React.FC<NodeProps> = React.memo(({
       }}
       onMouseLeave={onHoverEnd}
     >
-      <circle
-        cx={node.x}
-        cy={node.y}
-        r={node.size * scale * breatheScale}
-        fill={node.color}
-        opacity={opacity}
-        style={{
-          transition: 'all 0.8s ease-in-out',
-          strokeWidth: node.isSelected ? 3 : 0,
-          stroke: node.isSelected ? '#ffffff' : 'none'
-        }}
-      />
+      {node.image ? (
+        <g>
+          <defs>
+            <clipPath id={`clip-${node.id}`}>
+              <circle cx={node.x} cy={node.y} r={node.size * scale * breatheScale} />
+            </clipPath>
+          </defs>
+          <image
+            xlinkHref={node.image}
+            x={node.x - node.size * scale * breatheScale}
+            y={node.y - node.size * scale * breatheScale}
+            width={node.size * 2 * scale * breatheScale}
+            height={node.size * 2 * scale * breatheScale}
+            clipPath={`url(#clip-${node.id})`}
+          />
+          <circle
+            cx={node.x}
+            cy={node.y}
+            r={node.size * scale * breatheScale}
+            fill="none"
+            stroke={node.color}
+            strokeWidth={node.isSelected ? 4 : 2}
+            opacity={opacity}
+            style={{
+              transition: 'all 0.8s ease-in-out',
+              pointerEvents: 'none'
+            }}
+          />
+        </g>
+      ) : (
+        <circle
+          cx={node.x}
+          cy={node.y}
+          r={node.size * scale * breatheScale}
+          fill={node.color}
+          opacity={opacity}
+          style={{
+            transition: 'all 0.8s ease-in-out',
+            strokeWidth: node.isSelected ? 3 : 0,
+            stroke: node.isSelected ? '#ffffff' : 'none'
+          }}
+        />
+      )}
       
       {/* Inner glow effect */}
-      <circle
-        cx={node.x}
-        cy={node.y}
-        r={node.size * scale * breatheScale * 0.7}
-        fill={node.color}
-        opacity={0.3}
-        style={{
-          transition: 'all 0.8s ease-in-out'
-        }}
-      />
+      {!node.image && (
+        <circle
+          cx={node.x}
+          cy={node.y}
+          r={node.size * scale * breatheScale * 0.7}
+          fill={node.color}
+          opacity={0.3}
+          style={{
+            transition: 'all 0.8s ease-in-out',
+            pointerEvents: 'none'
+          }}
+        />
+      )}
       
       {/* Node label */}
       <text
