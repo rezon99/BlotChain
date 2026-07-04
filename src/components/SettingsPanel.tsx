@@ -1,5 +1,5 @@
 import React from 'react';
-import { Settings, X } from 'lucide-react';
+import { Settings, X, Download, FileJson, Camera } from 'lucide-react';
 import { AnimationSettings } from '../types';
 
 interface SettingsPanelProps {
@@ -9,6 +9,9 @@ interface SettingsPanelProps {
   setRefreshInterval: (value: number) => void;
   animationSettings: AnimationSettings;
   setAnimationSettings: (settings: AnimationSettings) => void;
+  onResetLayout?: () => void;
+  onExportJson?: () => void;
+  onExportPng?: () => void;
 }
 
 export const SettingsPanel: React.FC<SettingsPanelProps> = ({
@@ -17,7 +20,10 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   refreshInterval,
   setRefreshInterval,
   animationSettings,
-  setAnimationSettings
+  setAnimationSettings,
+  onResetLayout,
+  onExportJson,
+  onExportPng
 }) => {
   if (!isOpen) return null;
 
@@ -130,6 +136,43 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           Disable All Animations
         </button>
       </div>
+
+      {(onExportJson || onExportPng) && (
+        <div className="mt-6 pt-4 border-t border-slate-800">
+          <p className="text-[10px] text-gray-500 mb-3 uppercase tracking-wider font-semibold flex items-center gap-1">
+            <Download size={10} /> Export Data & View
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {onExportJson && (
+              <button
+                onClick={onExportJson}
+                className="flex items-center justify-center gap-2 py-2 bg-slate-800 hover:bg-slate-700 text-gray-300 text-xs rounded-lg border border-slate-700 transition-colors"
+              >
+                <FileJson size={14} /> JSON
+              </button>
+            )}
+            {onExportPng && (
+              <button
+                onClick={onExportPng}
+                className="flex items-center justify-center gap-2 py-2 bg-slate-800 hover:bg-slate-700 text-gray-300 text-xs rounded-lg border border-slate-700 transition-colors"
+              >
+                <Camera size={14} /> PNG
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {onResetLayout && (
+        <div className="mt-4">
+          <button
+            onClick={onResetLayout}
+            className="w-full py-2 bg-red-900/20 hover:bg-red-900/40 text-red-400 text-xs rounded-lg border border-red-900/50 transition-colors font-bold uppercase tracking-widest"
+          >
+            Reset Custom Layout
+          </button>
+        </div>
+      )}
     </div>
   );
 };
