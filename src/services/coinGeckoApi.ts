@@ -74,31 +74,11 @@ class CoinGeckoApiService {
       throw new Error('CoinGecko API base URL is not configured. Please check your environment variables.');
     }
 
-    // Ensure no double slashes and correct URL formation
-    let normalizedBaseUrl = BASE_URL.trim();
-    if (!normalizedBaseUrl.startsWith('http')) {
-      normalizedBaseUrl = `https://${normalizedBaseUrl}`;
-    }
-    const cleanBaseUrl = normalizedBaseUrl.endsWith('/') ? normalizedBaseUrl.slice(0, -1) : normalizedBaseUrl;
-    const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    const url = new URL(`${BASE_URL}${endpoint}`);
 
-    const url = new URL(`${cleanBaseUrl}${cleanEndpoint}`);
-
-    const headers: Record<string, string> = {
-      'Accept': 'application/json',
-    };
-
-    // Add API key if available
+    // Add API key to params if available
     if (API_KEY) {
-      const trimmedKey = API_KEY.trim();
-      // Support both demo and pro keys
-      if (cleanBaseUrl.includes('pro-api')) {
-        headers['x-cg-pro-api-key'] = trimmedKey;
-      } else {
-        // Use both header and query param for maximum compatibility with Demo API
-        headers['x-cg-demo-api-key'] = trimmedKey;
-        url.searchParams.append('x_cg_demo_api_key', trimmedKey);
-      }
+      params.x_cg_demo_api_key = API_KEY;
     }
 
     Object.entries(params).forEach(([key, value]) => {
@@ -113,11 +93,11 @@ class CoinGeckoApiService {
     }
 
     try {
-      const response = await fetch(url.toString(), { headers });
-
-      if (response.status === 401 || response.status === 403) {
-        throw new Error('CoinGecko API authentication failed. Please check your API key.');
-      }
+      const response = await fetch(url.toString(), {
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
 
       if (response.status === 429) {
         // Return cached data if available even if expired on rate limit
@@ -138,8 +118,8 @@ class CoinGeckoApiService {
       this.cache.set(cacheKey, { data, timestamp: Date.now() });
       return data;
     } catch (error) {
-      if (error instanceof TypeError && (error.message === 'Failed to fetch' || error.message.includes('NetworkError'))) {
-        throw new Error(`Network error: Unable to connect to CoinGecko API (${url.hostname}). Please check your internet connection or API availability.`);
+      if (error instanceof TypeError && error.message === 'Failed to fetch') {
+        throw new Error('Network error: Unable to connect to CoinGecko API. Please check your internet connection.');
       }
       console.error('CoinGecko API Error:', error);
       throw error;
@@ -247,4 +227,4 @@ class CoinGeckoApiService {
 }
 
 export const coinGeckoApi = new CoinGeckoApiService();
-export type { CoinMarketData, ExchangeData, GlobalMarketData, NFTMarketData, MarketChartData };
+export type { CoinMarketData, ExchangeData, GlobalMarketData, NFTMarketData };
