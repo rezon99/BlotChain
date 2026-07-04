@@ -6,6 +6,7 @@ interface ConnectionProps {
   nodes: Node[];
   isHighlighted: boolean;
   animationSettings: AnimationSettings;
+  isDragging?: boolean;
 }
 
 const Particle: React.FC<{ 
@@ -50,7 +51,8 @@ export const Connection: React.FC<ConnectionProps> = React.memo(({
   connection, 
   nodes, 
   isHighlighted,
-  animationSettings
+  animationSettings,
+  isDragging
 }) => {
   const sourceNode = nodes.find(n => n.id === connection.source);
   const targetNode = nodes.find(n => n.id === connection.target);
@@ -74,6 +76,7 @@ export const Connection: React.FC<ConnectionProps> = React.memo(({
   const strokeWidth = Math.max(2, Math.min(12, connection.flow / 5000000));
   const color = connection.direction === 'in' ? '#3b82f6' : '#f97316';
   const opacity = isHighlighted ? 1 : 0.6;
+  const isDraggingAny = isDragging || false;
 
   return (
     <g>
@@ -95,7 +98,7 @@ export const Connection: React.FC<ConnectionProps> = React.memo(({
         strokeLinecap="round"
         opacity={opacity}
         style={{
-          transition: 'all 0.8s ease-in-out',
+          transition: isDraggingAny ? 'none' : 'all 0.8s ease-in-out',
           filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))'
         }}
       />
@@ -109,7 +112,7 @@ export const Connection: React.FC<ConnectionProps> = React.memo(({
         strokeLinecap="round"
         opacity={0.2}
         style={{
-          transition: 'all 0.8s ease-in-out'
+          transition: isDraggingAny ? 'none' : 'all 0.8s ease-in-out'
         }}
       >
         <animate
@@ -138,7 +141,7 @@ export const Connection: React.FC<ConnectionProps> = React.memo(({
         fill={color}
         opacity={opacity * 0.8}
         style={{
-          transition: 'all 0.8s ease-in-out'
+          transition: isDraggingAny ? 'none' : 'all 0.8s ease-in-out'
         }}
       />
     </g>
