@@ -16,7 +16,12 @@ import { useRealTimeData } from '../hooks/useRealTimeData';
 
 export const Dashboard: React.FC = () => {
   const [mode, setMode] = useState<DashboardMode>('crypto');
-  const [refreshInterval, setRefreshInterval] = useState(30000);
+
+  const [refreshInterval, setRefreshInterval] = useState<number>(() => {
+    const saved = localStorage.getItem('blotchain_refresh_interval');
+    return saved ? parseInt(saved, 10) : 30000;
+  });
+
   const { nodes, connections, loading, error, lastUpdate, refetch } = useRealTimeData(mode, refreshInterval);
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
   const [activeChartNode, setActiveChartNode] = useState<NodeType | null>(null);
@@ -29,11 +34,25 @@ export const Dashboard: React.FC = () => {
 
   const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-  const [animationSettings, setAnimationSettings] = useState<AnimationSettings>({
-    enabled: true,
-    particleSpeed: 1,
-    breathingIntensity: 1
+
+  const [animationSettings, setAnimationSettings] = useState<AnimationSettings>(() => {
+    const saved = localStorage.getItem('blotchain_animation_settings');
+    return saved ? JSON.parse(saved) : {
+      enabled: true,
+      particleSpeed: 1,
+      breathingIntensity: 1
+    };
   });
+
+  // Persist refreshInterval when it changes
+  React.useEffect(() => {
+    localStorage.setItem('blotchain_refresh_interval', refreshInterval.toString());
+  }, [refreshInterval]);
+
+  // Persist animationSettings when they change
+  React.useEffect(() => {
+    localStorage.setItem('blotchain_animation_settings', JSON.stringify(animationSettings));
+  }, [animationSettings]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [tooltip, setTooltip] = useState<TooltipData>({
     node: {} as NodeType,
@@ -58,10 +77,28 @@ export const Dashboard: React.FC = () => {
 
   const handleNodeSelect = useCallback((nodeId: string) => {
     const node = nodes.find(n => n.id === nodeId);
-    if (node && !node.isHub) {
-      setActiveChartNode(node);
+    if (node) {
+      // Find position of the node (taking manual positions into account)
+      const nodeX = manualPositions[nodeId]?.x ?? node.x;
+      const nodeY = manualPositions[nodeId]?.y ?? node.y;
+
+      // Add cascade effect at clicked coordinates
+      const effectId = `cascade-${nodeId}-${Date.now()}`;
+      setCascadeEffects(prev => [
+        ...prev,
+        {
+          id: effectId,
+          x: nodeX,
+          y: nodeY,
+          trigger: Date.now()
+        }
+      ]);
+
+      if (!node.isHub) {
+        setActiveChartNode(node);
+      }
     }
-  }, [nodes]);
+  }, [nodes, manualPositions]);
 
   const toggleComparison = useCallback((nodeId: string) => {
     setSelectedNodes(prev => {
@@ -240,6 +277,10 @@ export const Dashboard: React.FC = () => {
     }));
   }, [nodes, categoryFilter, manualPositions]);
 
+  const filteredNodesMap = useMemo(() => {
+    return new Map<string, NodeType>(filteredNodes.map(node => [node.id, node]));
+  }, [filteredNodes]);
+
   const filteredConnections = useMemo(() => {
     const filteredNodeIds = new Set(filteredNodes.map(n => n.id));
     return connections.filter(c => filteredNodeIds.has(c.source) && filteredNodeIds.has(c.target));
@@ -291,20 +332,26 @@ export const Dashboard: React.FC = () => {
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
         >
-          {filteredConnections.map(connection => (
-            <ConnectionComponent
-              key={connection.id}
-              connection={connection}
-              nodes={filteredNodes}
-              isHighlighted={
-                selectedNodes.has(connection.source) || 
-                selectedNodes.has(connection.target) ||
-                selectedNodes.size === 0
-              }
-              animationSettings={animationSettings}
-              isDragging={draggingNodeId === connection.source || draggingNodeId === connection.target}
-            />
-          ))}
+          {filteredConnections.map(connection => {
+            const sourceNode = filteredNodesMap.get(connection.source);
+            const targetNode = filteredNodesMap.get(connection.target);
+            if (!sourceNode || !targetNode) return null;
+            return (
+              <ConnectionComponent
+                key={connection.id}
+                connection={connection}
+                sourceNode={sourceNode}
+                targetNode={targetNode}
+                isHighlighted={
+                  selectedNodes.has(connection.source) ||
+                  selectedNodes.has(connection.target) ||
+                  selectedNodes.size === 0
+                }
+                animationSettings={animationSettings}
+                isDragging={draggingNodeId === connection.source || draggingNodeId === connection.target}
+              />
+            );
+          })}
           
           {filteredNodes.map(node => (
             <Node
