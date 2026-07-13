@@ -74,11 +74,24 @@ class CoinGeckoApiService {
       throw new Error('CoinGecko API base URL is not configured. Please check your environment variables.');
     }
 
-    const url = new URL(`${BASE_URL}${endpoint}`);
+    // Normalize base URL and endpoint to prevent double-slashes in URL resolution
+    const normalizedUrlStr = `${BASE_URL.replace(/\/+$/, '')}/${endpoint.replace(/^\/+/, '')}`;
+    const url = new URL(normalizedUrlStr);
 
-    // Add API key to params if available
+    const isPro = BASE_URL.includes('pro-api.coingecko.com');
+    const headers: Record<string, string> = {
+      'Accept': 'application/json',
+    };
+
+    // Add API key to query params and headers if available
     if (API_KEY) {
-      params.x_cg_demo_api_key = API_KEY;
+      if (isPro) {
+        params.x_cg_pro_api_key = API_KEY;
+        headers['x-cg-pro-api-key'] = API_KEY;
+      } else {
+        params.x_cg_demo_api_key = API_KEY;
+        headers['x-cg-demo-api-key'] = API_KEY;
+      }
     }
 
     Object.entries(params).forEach(([key, value]) => {
@@ -94,9 +107,7 @@ class CoinGeckoApiService {
 
     try {
       const response = await fetch(url.toString(), {
-        headers: {
-          'Accept': 'application/json',
-        },
+        headers,
       });
 
       if (response.status === 429) {

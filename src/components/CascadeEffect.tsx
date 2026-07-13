@@ -18,6 +18,7 @@ export const CascadeEffect: React.FC<CascadeEffectProps> = ({
   useEffect(() => {
     if (trigger === 0) return;
 
+    let animId: number;
     const newRings = Array.from({ length: 3 }, (_, i) => ({
       id: `ring-${trigger}-${i}`,
       radius: 0,
@@ -39,16 +40,22 @@ export const CascadeEffect: React.FC<CascadeEffectProps> = ({
         );
 
         if (frame < 100) {
-          requestAnimationFrame(animate);
+          animId = requestAnimationFrame(animate);
         } else {
           setRings([]);
           onComplete();
         }
       };
-      requestAnimationFrame(animate);
+      animId = requestAnimationFrame(animate);
     };
 
     animateRings();
+
+    return () => {
+      if (animId) {
+        cancelAnimationFrame(animId);
+      }
+    };
   }, [trigger, onComplete]);
 
   return (

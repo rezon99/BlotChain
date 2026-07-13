@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Node, Connection, DashboardMode } from '../types';
 import { coinGeckoApi } from '../services/coinGeckoApi';
 import {
@@ -15,7 +15,10 @@ export function useRealTimeData(mode: DashboardMode = 'crypto', refreshInterval:
   const [error, setError] = useState<string | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
+  const activeFetchId = useRef(0);
+
   const fetchData = useCallback(async () => {
+    const fetchId = ++activeFetchId.current;
     try {
       setLoading(true);
       setError(null);
@@ -28,19 +31,24 @@ export function useRealTimeData(mode: DashboardMode = 'crypto', refreshInterval:
           coinGeckoApi.getTopCoins(15),
           coinGeckoApi.getExchanges(5)
         ]);
+        if (fetchId !== activeFetchId.current) return;
         newNodes = transformCoinDataToNodes(coinsData, exchangesData);
         newConnections = generateConnectionsFromRealData(newNodes);
       } else {
         const nftData = await coinGeckoApi.getNFTMarkets(20);
+        if (fetchId !== activeFetchId.current) return;
         newNodes = transformNFTDataToNodes(nftData);
         newConnections = generateNFTConnections(newNodes);
       }
+
+      if (fetchId !== activeFetchId.current) return;
 
       setNodes(newNodes);
       setConnections(newConnections);
       setLastUpdate(new Date());
       setLoading(false);
     } catch (err) {
+      if (fetchId !== activeFetchId.current) return;
       console.error('Failed to fetch data:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch data');
       setLoading(false);
