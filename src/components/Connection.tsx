@@ -3,7 +3,8 @@ import { Connection as ConnectionType, Node, Particle as ParticleType, Animation
 
 interface ConnectionProps {
   connection: ConnectionType;
-  nodes: Node[];
+  sourceNode: Node;
+  targetNode: Node;
   isHighlighted: boolean;
   animationSettings: AnimationSettings;
   isDragging?: boolean;
@@ -49,14 +50,12 @@ const Particle: React.FC<{
 
 export const Connection: React.FC<ConnectionProps> = React.memo(({
   connection, 
-  nodes, 
+  sourceNode,
+  targetNode,
   isHighlighted,
   animationSettings,
   isDragging
 }) => {
-  const sourceNode = nodes.find(n => n.id === connection.source);
-  const targetNode = nodes.find(n => n.id === connection.target);
-
   if (!sourceNode || !targetNode) return null;
 
   const dx = targetNode.x - sourceNode.x;
