@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { Node as NodeType, TooltipData, AnimationSettings, DashboardMode } from '../types';
 import { Node } from './Node';
 import { Connection as ConnectionComponent } from './Connection';
@@ -13,6 +13,7 @@ import { Legend } from './Legend';
 import { LiveStatus } from './LiveStatus';
 import { ChartModal } from './ChartModal';
 import { useRealTimeData } from '../hooks/useRealTimeData';
+import { adaptNodesToViewport, getResponsiveViewport } from '../utils/dataTransformer';
 
 export const Dashboard: React.FC = () => {
   const [mode, setMode] = useState<DashboardMode>('crypto');
@@ -53,6 +54,26 @@ export const Dashboard: React.FC = () => {
   React.useEffect(() => {
     localStorage.setItem('blotchain_animation_settings', JSON.stringify(animationSettings));
   }, [animationSettings]);
+
+  React.useEffect(() => {
+    const target = viewportRef.current;
+    if (!target) return;
+
+    const updateViewport = () => {
+      const rect = target.getBoundingClientRect();
+      setViewportSize({
+        width: Math.max(320, Math.floor(rect.width || 800)),
+        height: Math.max(360, Math.floor(rect.height || 600))
+      });
+    };
+
+    updateViewport();
+
+    const observer = new ResizeObserver(updateViewport);
+    observer.observe(target);
+
+    return () => observer.disconnect();
+  }, []);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [tooltip, setTooltip] = useState<TooltipData>({
     node: {} as NodeType,
@@ -66,6 +87,9 @@ export const Dashboard: React.FC = () => {
     y: number;
     trigger: number;
   }>>([]);
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const [viewportSize, setViewportSize] = useState({ width: 800, height: 600 });
 
   const handleModeSwitch = useCallback((newMode: DashboardMode) => {
     if (newMode !== mode) {
@@ -228,12 +252,14 @@ export const Dashboard: React.FC = () => {
   }, [mode, nodes, connections, manualPositions]);
 
   const exportToPng = useCallback(() => {
-    const svg = document.querySelector('svg[viewBox="0 0 800 600"]') as SVGSVGElement;
+    const svg = svgRef.current;
     if (!svg) return;
 
     const canvas = document.createElement('canvas');
-    canvas.width = 1600; // High res
-    canvas.height = 1200;
+    const viewBoxWidth = Math.max(1, Math.round(svg.viewBox.baseVal.width || viewport.width));
+    const viewBoxHeight = Math.max(1, Math.round(svg.viewBox.baseVal.height || viewport.height));
+    canvas.width = viewBoxWidth * 2;
+    canvas.height = viewBoxHeight * 2;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
@@ -247,7 +273,7 @@ export const Dashboard: React.FC = () => {
 
     const img = new Image();
     img.onload = () => {
-      ctx.drawImage(img, 0, 0, 1600, 1200);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       URL.revokeObjectURL(url);
 
       const pngUrl = canvas.toDataURL('image/png');
@@ -259,23 +285,29 @@ export const Dashboard: React.FC = () => {
       document.body.removeChild(a);
     };
     img.src = url;
-  }, [mode]);
+  }, [mode, viewport]);
 
   const categories = useMemo(() => {
     const cats = new Set(nodes.filter(n => !n.isHub).map(n => n.category));
     return ['All', ...Array.from(cats)].sort();
   }, [nodes]);
 
+  const viewport = useMemo(() => getResponsiveViewport(viewportSize.width, viewportSize.height), [viewportSize]);
+  const isMobile = viewport.width <= 640;
+  const isPortrait = viewport.height > viewport.width;
+
   const filteredNodes = useMemo(() => {
     const baseNodes = categoryFilter === 'All'
       ? nodes
       : nodes.filter(n => n.category === categoryFilter || n.isHub);
 
-    return baseNodes.map(node => ({
+    const adaptedNodes = adaptNodesToViewport(baseNodes, viewport.width, viewport.height);
+
+    return adaptedNodes.map(node => ({
       ...node,
       ...(manualPositions[node.id] || {})
     }));
-  }, [nodes, categoryFilter, manualPositions]);
+  }, [nodes, categoryFilter, manualPositions, viewport]);
 
   const filteredNodesMap = useMemo(() => {
     return new Map<string, NodeType>(filteredNodes.map(node => [node.id, node]));
@@ -299,7 +331,7 @@ export const Dashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 overflow-hidden flex flex-col">
       <div className="absolute inset-0 opacity-10 pointer-events-none">
         <svg className="w-full h-full">
           <defs>
@@ -323,11 +355,15 @@ export const Dashboard: React.FC = () => {
         onClearSelection={clearSelection}
       />
 
-      <div className="relative">
+      <div
+        ref={viewportRef}
+        className="relative flex-1 min-h-[380px] max-h-[calc(100vh-160px)] px-2 pb-2 sm:px-4 sm:pb-4"
+      >
         <svg 
-          viewBox="0 0 800 600" 
-          className="w-full h-screen max-w-full"
-          style={{ minHeight: '600px' }}
+          ref={svgRef}
+          viewBox={`0 0 ${viewport.width} ${viewport.height}`}
+          className="w-full h-full max-w-full rounded-lg"
+          style={{ minHeight: '360px' }}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
@@ -386,6 +422,20 @@ export const Dashboard: React.FC = () => {
             UPDATING LIVE DATA...
           </div>
         )}
+
+      </div>
+
+      <div className={`px-3 pb-3 sm:px-4 sm:pb-4 flex ${isMobile || isPortrait ? 'flex-col' : 'flex-row'} gap-2 sm:gap-3`}>
+        <LiveStatus
+          nodeCount={nodes.length}
+          connectionCount={connections.length}
+          mode={mode}
+          className="relative bg-gray-900 bg-opacity-90 backdrop-blur-sm border border-gray-700 rounded-lg p-3"
+        />
+        <Legend
+          mode={mode}
+          className="relative bg-gray-900 bg-opacity-90 backdrop-blur-sm border border-gray-700 rounded-lg p-3 w-full sm:w-auto"
+        />
       </div>
 
       <Tooltip data={tooltip} />
@@ -405,14 +455,6 @@ export const Dashboard: React.FC = () => {
       <ComparisonPanel
         selectedNodes={selectedNodeData}
         onClear={clearSelection}
-      />
-
-      <Legend mode={mode} />
-
-      <LiveStatus
-        nodeCount={nodes.length}
-        connectionCount={connections.length}
-        mode={mode}
       />
 
       <ChartModal
