@@ -1,13 +1,18 @@
 import { Particle } from '../types';
 
-export function calculateNodeSize(liquidity: number): number {
+export function calculateNodeSize(liquidity: number, viewportWidth: number = 1280, isHub: boolean = false): number {
   // Logarithmic scaling for better visual distribution
-  const minSize = 25;
-  const maxSize = 100;
+  const isMobile = viewportWidth <= 480;
+  const isTablet = viewportWidth > 480 && viewportWidth <= 1024;
+
+  const minSize = isMobile ? 8 : isTablet ? 10 : 12;
+  const maxSize = isMobile ? 25 : isTablet ? 38 : 50;
   const logLiquidity = Math.log10(Math.max(1, liquidity));
   const normalizedSize = (logLiquidity - 6) / (12 - 6); // Normalize between 1M and 1T
+  const baseSize = Math.max(minSize, Math.min(maxSize, minSize + normalizedSize * (maxSize - minSize)));
 
-  return Math.max(minSize, Math.min(maxSize, minSize + normalizedSize * (maxSize - minSize)));
+  if (!isHub) return baseSize;
+  return Math.min(maxSize * 1.25, baseSize * (isMobile ? 1.1 : 1.2));
 }
 
 export function getNodeColor(change24h: number, change7d: number): string {
