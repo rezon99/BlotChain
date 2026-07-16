@@ -52,7 +52,7 @@ export const CascadeEffect: React.FC<CascadeEffectProps> = ({
     animateRings();
 
     return () => {
-      if (animId) {
+      if (typeof animId === 'number') {
         cancelAnimationFrame(animId);
       }
     };
