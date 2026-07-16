@@ -3,11 +3,12 @@ import { DashboardMode } from '../types';
 
 interface LegendProps {
   mode: DashboardMode;
+  className?: string;
 }
 
-export const Legend: React.FC<LegendProps> = React.memo(({ mode }) => {
+export const Legend: React.FC<LegendProps> = React.memo(({ mode, className }) => {
   return (
-    <div className="absolute bottom-6 left-6 bg-gray-900 bg-opacity-90 backdrop-blur-sm border border-gray-700 rounded-lg p-4">
+    <div className={className ?? "absolute bottom-6 left-6 bg-gray-900 bg-opacity-90 backdrop-blur-sm border border-gray-700 rounded-lg p-4"}>
       <h3 className="text-white font-semibold mb-3">Legend</h3>
       <div className="space-y-2 text-sm">
         <div className="flex items-center gap-2">
