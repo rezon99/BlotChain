@@ -251,6 +251,10 @@ export const Dashboard: React.FC = () => {
     URL.revokeObjectURL(url);
   }, [mode, nodes, connections, manualPositions]);
 
+  const viewport = useMemo(() => getResponsiveViewport(viewportSize.width, viewportSize.height), [viewportSize]);
+  const isMobile = viewport.width <= 640;
+  const isPortrait = viewport.height > viewport.width;
+
   const exportToPng = useCallback(() => {
     const svg = svgRef.current;
     if (!svg) return;
@@ -291,10 +295,6 @@ export const Dashboard: React.FC = () => {
     const cats = new Set(nodes.filter(n => !n.isHub).map(n => n.category));
     return ['All', ...Array.from(cats)].sort();
   }, [nodes]);
-
-  const viewport = useMemo(() => getResponsiveViewport(viewportSize.width, viewportSize.height), [viewportSize]);
-  const isMobile = viewport.width <= 640;
-  const isPortrait = viewport.height > viewport.width;
 
   const filteredNodes = useMemo(() => {
     const baseNodes = categoryFilter === 'All'
