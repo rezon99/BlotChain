@@ -66,10 +66,11 @@ export function applyForceDirectedLayout(
       node.x += forces[i].x;
       node.y += forces[i].y;
 
-      const minX = bounds.padding + node.size;
-      const maxX = bounds.width - bounds.padding - node.size;
+      const labelSafetyMarginX = 35;
+      const minX = Math.max(bounds.padding, labelSafetyMarginX) + node.size;
+      const maxX = bounds.width - Math.max(bounds.padding, labelSafetyMarginX) - node.size;
       const minY = bounds.padding + node.size;
-      const maxY = bounds.height - bounds.padding - node.size;
+      const maxY = bounds.height - bounds.padding - node.size - 40; // 40px safety for labels at the bottom
 
       node.x = Math.max(minX, Math.min(maxX, node.x));
       node.y = Math.max(minY, Math.min(maxY, node.y));

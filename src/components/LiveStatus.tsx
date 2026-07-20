@@ -15,12 +15,13 @@ export const LiveStatus: React.FC<LiveStatusProps> = React.memo(({
   className
 }) => {
   return (
-    <div className={className ?? "absolute top-24 right-6 bg-gray-900 bg-opacity-90 backdrop-blur-sm border border-gray-700 rounded-lg p-3"}>
-      <div className="flex items-center gap-2">
+    <div className={className ?? "absolute top-4 right-4 z-10 bg-gray-900 bg-opacity-90 backdrop-blur-sm border border-gray-700 rounded-lg px-2.5 py-1.5 flex items-center gap-3"}>
+      <div className="flex items-center gap-1.5">
         <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-        <span className="text-green-400 text-sm font-bold uppercase tracking-tighter">Live Status</span>
+        <span className="text-green-400 text-xs font-bold uppercase tracking-tighter whitespace-nowrap">Live</span>
       </div>
-      <div className="text-gray-500 text-[10px] mt-1 font-mono uppercase">
+      <div className="w-px h-3 bg-slate-700" />
+      <div className="text-gray-400 text-[10px] font-mono uppercase whitespace-nowrap">
         {nodeCount} {mode === 'crypto' ? 'Assets' : 'Collections'} • {connectionCount} Links
       </div>
     </div>
