@@ -45,6 +45,25 @@ export const Dashboard: React.FC = () => {
     };
   });
 
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [tooltip, setTooltip] = useState<TooltipData>({
+    node: {} as NodeType,
+    x: 0,
+    y: 0,
+    visible: false
+  });
+  const [cascadeEffects, setCascadeEffects] = useState<Array<{
+    id: string;
+    x: number;
+    y: number;
+    trigger: number;
+  }>>([]);
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const [viewportSize, setViewportSize] = useState({ width: 800, height: 600 });
+
+  const viewport = useMemo(() => getResponsiveViewport(viewportSize.width, viewportSize.height), [viewportSize]);
+
   // Persist refreshInterval when it changes
   React.useEffect(() => {
     localStorage.setItem('blotchain_refresh_interval', refreshInterval.toString());
@@ -74,22 +93,6 @@ export const Dashboard: React.FC = () => {
 
     return () => observer.disconnect();
   }, []);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [tooltip, setTooltip] = useState<TooltipData>({
-    node: {} as NodeType,
-    x: 0,
-    y: 0,
-    visible: false
-  });
-  const [cascadeEffects, setCascadeEffects] = useState<Array<{
-    id: string;
-    x: number;
-    y: number;
-    trigger: number;
-  }>>([]);
-  const svgRef = useRef<SVGSVGElement | null>(null);
-  const viewportRef = useRef<HTMLDivElement | null>(null);
-  const [viewportSize, setViewportSize] = useState({ width: 800, height: 600 });
 
   const handleModeSwitch = useCallback((newMode: DashboardMode) => {
     if (newMode !== mode) {
@@ -207,9 +210,23 @@ export const Dashboard: React.FC = () => {
     if (!svg) return;
 
     const coords = getSVGCoords(e, svg);
+
+    // Find node size for accurate boundary clamping during drag
+    const node = nodes.find(n => n.id === draggingNodeId);
+    const nodeSize = node ? node.size : 20;
+
+    const labelSafetyMarginX = 35;
+    const minX = Math.max(viewport.padding, labelSafetyMarginX) + nodeSize;
+    const maxX = viewport.width - Math.max(viewport.padding, labelSafetyMarginX) - nodeSize;
+    const minY = viewport.padding + nodeSize;
+    const maxY = viewport.height - viewport.padding - nodeSize - 40; // 40px safety for labels
+
+    const clampedX = Math.max(minX, Math.min(maxX, coords.x - dragOffset.x));
+    const clampedY = Math.max(minY, Math.min(maxY, coords.y - dragOffset.y));
+
     const newPos = {
-      x: coords.x - dragOffset.x,
-      y: coords.y - dragOffset.y
+      x: clampedX,
+      y: clampedY
     };
 
     setManualPositions(prev => {
@@ -220,7 +237,7 @@ export const Dashboard: React.FC = () => {
       localStorage.setItem('blotchain_positions', JSON.stringify(updated));
       return updated;
     });
-  }, [draggingNodeId, dragOffset]);
+  }, [draggingNodeId, dragOffset, nodes, viewport]);
 
   const handleMouseUp = useCallback(() => {
     setDraggingNodeId(null);
@@ -250,10 +267,6 @@ export const Dashboard: React.FC = () => {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }, [mode, nodes, connections, manualPositions]);
-
-  const viewport = useMemo(() => getResponsiveViewport(viewportSize.width, viewportSize.height), [viewportSize]);
-  const isMobile = viewport.width <= 640;
-  const isPortrait = viewport.height > viewport.width;
 
   const exportToPng = useCallback(() => {
     const svg = svgRef.current;
@@ -303,10 +316,23 @@ export const Dashboard: React.FC = () => {
 
     const adaptedNodes = adaptNodesToViewport(baseNodes, viewport.width, viewport.height);
 
-    return adaptedNodes.map(node => ({
-      ...node,
-      ...(manualPositions[node.id] || {})
-    }));
+    return adaptedNodes.map(node => {
+      const manual = manualPositions[node.id];
+      if (manual) {
+        const labelSafetyMarginX = 35;
+        const minX = Math.max(viewport.padding, labelSafetyMarginX) + node.size;
+        const maxX = viewport.width - Math.max(viewport.padding, labelSafetyMarginX) - node.size;
+        const minY = viewport.padding + node.size;
+        const maxY = viewport.height - viewport.padding - node.size - 40; // leave 40px for labels at bottom
+
+        return {
+          ...node,
+          x: Math.max(minX, Math.min(maxX, manual.x)),
+          y: Math.max(minY, Math.min(maxY, manual.y))
+        };
+      }
+      return node;
+    });
   }, [nodes, categoryFilter, manualPositions, viewport]);
 
   const filteredNodesMap = useMemo(() => {
@@ -331,7 +357,7 @@ export const Dashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 overflow-hidden flex flex-col">
+    <div className="h-screen h-[100dvh] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 overflow-hidden flex flex-col">
       <div className="absolute inset-0 opacity-10 pointer-events-none">
         <svg className="w-full h-full">
           <defs>
@@ -347,9 +373,6 @@ export const Dashboard: React.FC = () => {
         lastUpdate={lastUpdate}
         mode={mode}
         onModeSwitch={handleModeSwitch}
-        categories={categories}
-        categoryFilter={categoryFilter}
-        setCategoryFilter={setCategoryFilter}
         onOpenSettings={() => setIsSettingsOpen(true)}
         selectedCount={selectedNodes.size}
         onClearSelection={clearSelection}
@@ -357,13 +380,12 @@ export const Dashboard: React.FC = () => {
 
       <div
         ref={viewportRef}
-        className="relative flex-1 min-h-[380px] max-h-[calc(100vh-160px)] px-2 pb-2 sm:px-4 sm:pb-4"
+        className="relative flex-1 min-h-0 px-2 pb-2 sm:px-4 sm:pb-4"
       >
         <svg 
           ref={svgRef}
           viewBox={`0 0 ${viewport.width} ${viewport.height}`}
           className="w-full h-full max-w-full rounded-lg"
-          style={{ minHeight: '360px' }}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
@@ -418,24 +440,42 @@ export const Dashboard: React.FC = () => {
         </svg>
 
         {loading && nodes.length > 0 && (
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-blue-600/90 text-white px-4 py-1 rounded-full text-xs font-bold animate-pulse">
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-blue-600/90 text-white px-4 py-1 rounded-full text-xs font-bold animate-pulse z-20">
             UPDATING LIVE DATA...
           </div>
         )}
 
-      </div>
-
-      <div className={`px-3 pb-3 sm:px-4 sm:pb-4 flex ${isMobile || isPortrait ? 'flex-col' : 'flex-row'} gap-2 sm:gap-3`}>
+        {/* Floating Controls Overlays */}
         <LiveStatus
           nodeCount={nodes.length}
           connectionCount={connections.length}
           mode={mode}
-          className="relative bg-gray-900 bg-opacity-90 backdrop-blur-sm border border-gray-700 rounded-lg p-3"
+          className="absolute top-4 right-4 z-10"
         />
-        <Legend
-          mode={mode}
-          className="relative bg-gray-900 bg-opacity-90 backdrop-blur-sm border border-gray-700 rounded-lg p-3 w-full sm:w-auto"
-        />
+
+        <div className="absolute bottom-4 left-4 z-10 flex flex-col gap-2 max-w-[calc(100%-32px)]">
+          <Legend
+            mode={mode}
+            className="bg-gray-900 bg-opacity-90 backdrop-blur-sm border border-gray-700 rounded-lg p-3 w-full"
+          />
+          {/* Category Filter positioned vertically below the Legend panel */}
+          <div className="flex items-center gap-1 sm:gap-2 bg-gray-900 bg-opacity-95 backdrop-blur-sm p-1.5 rounded-lg border border-gray-700 overflow-x-auto max-w-full">
+            {categories.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setCategoryFilter(cat)}
+                className={`px-2.5 py-1 text-[10px] sm:text-xs rounded-md transition-all whitespace-nowrap font-medium ${
+                  categoryFilter === cat
+                    ? mode === 'crypto' ? 'bg-blue-600 text-white shadow-lg' : 'bg-purple-600 text-white shadow-lg'
+                    : 'text-gray-400 hover:text-gray-200 hover:bg-slate-800'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        </div>
+
       </div>
 
       <Tooltip data={tooltip} />
