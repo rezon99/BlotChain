@@ -41,7 +41,8 @@ export function applyForceDirectedLayout(
         const dx = b.x - a.x;
         const dy = b.y - a.y;
         const distance = Math.hypot(dx, dy) || 0.0001;
-        const desired = a.size + b.size + minDistance;
+        // Include a 20% collision buffer for node spheres (20% maximum before collision)
+        const desired = (a.size + b.size) * 1.20 + minDistance;
 
         if (distance < desired) {
           const overlap = desired - distance;
