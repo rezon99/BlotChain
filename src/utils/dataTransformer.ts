@@ -13,8 +13,7 @@ export function getResponsiveViewport(width: number, height: number): ViewportCo
   const safeWidth = Math.max(320, Math.min(1920, Math.floor(width || 800)));
   const safeHeight = Math.max(320, Math.min(1400, Math.floor(height || 600)));
   const isMobile = safeWidth <= 640;
-  const isPortrait = safeHeight > safeWidth;
-  const padding = isMobile ? (isPortrait ? 72 : 52) : 60;
+  const padding = isMobile ? 24 : 50;
 
   return {
     width: safeWidth,
