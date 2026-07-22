@@ -119,8 +119,8 @@ export function transformCoinDataToNodes(
     
     // Determine category
     const category = item.type === 'exchange' 
-      ? 'Exchange'
-      : getCoinCategory(item.name || 'Unknown', item.market_cap_rank || 999);
+      ? 'CEX'
+      : getCoinCategory(item.name || 'Unknown', item.symbol || '', item.market_cap_rank || 999);
 
     return {
       id: item.id || `unknown-${index}`,
@@ -154,24 +154,24 @@ export function generateConnectionsFromRealData(nodes: Node[]): Connection[] {
   const connections: Connection[] = [];
   
   // Create connections based on market relationships
-  const exchanges = nodes.filter(n => n.category === 'Exchange');
-  const layer1Coins = nodes.filter(n => n.category === 'Layer 1');
-  const defiProjects = nodes.filter(n => n.category === 'DeFi');
+  const cexs = nodes.filter(n => n.category === 'CEX');
+  const top10 = nodes.filter(n => n.category === 'Top 10');
+  const amms = nodes.filter(n => n.category === 'AMM / DEX' || n.category === 'Protocols / Altcoins');
   
-  // Connect exchanges to major coins
-  exchanges.forEach(exchange => {
-    layer1Coins.slice(0, 3).forEach(coin => {
+  // Connect centralized exchanges to Top 10 coins
+  cexs.forEach(cex => {
+    top10.slice(0, 3).forEach(coin => {
       if (Math.random() > 0.3) { // 70% chance of connection
-        connections.push(createConnection(exchange, coin));
+        connections.push(createConnection(cex, coin));
       }
     });
   });
   
-  // Connect DeFi projects to Layer 1
-  defiProjects.forEach(defi => {
-    const randomLayer1 = layer1Coins[Math.floor(Math.random() * layer1Coins.length)];
-    if (randomLayer1) {
-      connections.push(createConnection(defi, randomLayer1));
+  // Connect AMMs/Protocols to Top 10 coins
+  amms.forEach(amm => {
+    const randomTop10 = top10[Math.floor(Math.random() * top10.length)];
+    if (randomTop10) {
+      connections.push(createConnection(amm, randomTop10));
     }
   });
   
@@ -292,32 +292,33 @@ export function generateNFTConnections(nodes: Node[]): Connection[] {
   return connections;
 }
 
-function getCoinCategory(name: string, rank: number): string {
+function getCoinCategory(name: string, symbol: string, rank: number): string {
   const name_lower = name.toLowerCase();
+  const sym_lower = symbol.toLowerCase();
   
-  if (name_lower.includes('bitcoin') || name_lower.includes('ethereum')) {
-    return 'Layer 1';
+  // 1. Stablecoins
+  const isStable = [
+    'usdt', 'usdc', 'dai', 'fdusd', 'usde', 'usds', 'tusd', 'busd', 'ust', 'mim', 'frax'
+  ].includes(sym_lower) || name_lower.includes('tether') || name_lower.includes('usd coin') || name_lower.includes('stablecoin') || name_lower.includes('dollar');
+
+  if (isStable) {
+    return 'Stablecoins';
   }
-  if (name_lower.includes('binance') || name_lower.includes('coinbase')) {
-    return 'Exchange';
-  }
-  if (name_lower.includes('uniswap') || name_lower.includes('sushiswap') || 
-      name_lower.includes('pancake') || name_lower.includes('curve')) {
-    return 'DeFi';
-  }
-  if (name_lower.includes('polygon') || name_lower.includes('arbitrum') || 
-      name_lower.includes('optimism')) {
-    return 'Layer 2';
-  }
-  if (name_lower.includes('chainlink') || name_lower.includes('oracle')) {
-    return 'Oracle';
-  }
+
+  // 2. Top 10
   if (rank <= 10) {
-    return 'Layer 1';
+    return 'Top 10';
   }
-  if (rank <= 50) {
-    return 'DeFi';
+
+  // 3. AMM / DEX
+  const isAMM = name_lower.includes('uniswap') || name_lower.includes('curve') ||
+                name_lower.includes('pancake') || name_lower.includes('sushi') ||
+                name_lower.includes('balancer') || name_lower.includes('bancor') ||
+                name_lower.includes('thorchain') || sym_lower === 'uni' || sym_lower === 'cake' || sym_lower === 'crv';
+  if (isAMM) {
+    return 'AMM / DEX';
   }
-  
-  return 'Altcoin';
+
+  // 4. Protocols / Altcoins
+  return 'Protocols / Altcoins';
 }
