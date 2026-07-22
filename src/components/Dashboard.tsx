@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { Node as NodeType, TooltipData, AnimationSettings, DashboardMode } from '../types';
 import { Node } from './Node';
 import { Connection as ConnectionComponent } from './Connection';
@@ -11,19 +11,54 @@ import { ComparisonPanel } from './ComparisonPanel';
 import { Header } from './Header';
 import { Legend } from './Legend';
 import { LiveStatus } from './LiveStatus';
+import { ChartModal } from './ChartModal';
 import { useRealTimeData } from '../hooks/useRealTimeData';
+import { adaptNodesToViewport, getResponsiveViewport } from '../utils/dataTransformer';
 
-export const Dashboard: React.FC = () => {
-  const [mode, setMode] = useState<DashboardMode>('crypto');
-  const [refreshInterval, setRefreshInterval] = useState(30000);
+interface DashboardProps {
+  mode?: DashboardMode;
+  onModeSwitch?: (mode: DashboardMode) => void;
+  viewMode?: '2d' | '3d';
+  onViewModeSwitch?: (viewMode: '2d' | '3d') => void;
+}
+
+export const Dashboard: React.FC<DashboardProps> = ({
+  mode: propMode,
+  onModeSwitch: propOnModeSwitch,
+  viewMode = '2d',
+  onViewModeSwitch
+}) => {
+  const [internalMode, setInternalMode] = useState<DashboardMode>('crypto');
+  const mode = propMode ?? internalMode;
+  const setMode = propOnModeSwitch ?? setInternalMode;
+
+  const [refreshInterval, setRefreshInterval] = useState<number>(() => {
+    const saved = localStorage.getItem('blotchain_refresh_interval');
+    return saved ? parseInt(saved, 10) : 30000;
+  });
+
   const { nodes, connections, loading, error, lastUpdate, refetch } = useRealTimeData(mode, refreshInterval);
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
+  const [activeChartNode, setActiveChartNode] = useState<NodeType | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
-  const [animationSettings, setAnimationSettings] = useState<AnimationSettings>({
-    enabled: true,
-    particleSpeed: 1,
-    breathingIntensity: 1
+
+  const [manualPositions, setManualPositions] = useState<Record<string, { x: number, y: number }>>(() => {
+    const saved = localStorage.getItem('blotchain_positions');
+    return saved ? JSON.parse(saved) : {};
   });
+
+  const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+
+  const [animationSettings, setAnimationSettings] = useState<AnimationSettings>(() => {
+    const saved = localStorage.getItem('blotchain_animation_settings');
+    return saved ? JSON.parse(saved) : {
+      enabled: true,
+      particleSpeed: 1,
+      breathingIntensity: 1
+    };
+  });
+
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [tooltip, setTooltip] = useState<TooltipData>({
     node: {} as NodeType,
@@ -37,6 +72,41 @@ export const Dashboard: React.FC = () => {
     y: number;
     trigger: number;
   }>>([]);
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const [viewportSize, setViewportSize] = useState({ width: 800, height: 600 });
+
+  const viewport = useMemo(() => getResponsiveViewport(viewportSize.width, viewportSize.height), [viewportSize]);
+
+  // Persist refreshInterval when it changes
+  React.useEffect(() => {
+    localStorage.setItem('blotchain_refresh_interval', refreshInterval.toString());
+  }, [refreshInterval]);
+
+  // Persist animationSettings when they change
+  React.useEffect(() => {
+    localStorage.setItem('blotchain_animation_settings', JSON.stringify(animationSettings));
+  }, [animationSettings]);
+
+  React.useEffect(() => {
+    const target = viewportRef.current;
+    if (!target) return;
+
+    const updateViewport = () => {
+      const rect = target.getBoundingClientRect();
+      setViewportSize({
+        width: Math.max(320, Math.floor(rect.width || 800)),
+        height: Math.max(360, Math.floor(rect.height || 600))
+      });
+    };
+
+    updateViewport();
+
+    const observer = new ResizeObserver(updateViewport);
+    observer.observe(target);
+
+    return () => observer.disconnect();
+  }, []);
 
   const handleModeSwitch = useCallback((newMode: DashboardMode) => {
     if (newMode !== mode) {
@@ -44,9 +114,34 @@ export const Dashboard: React.FC = () => {
       setSelectedNodes(new Set());
       setCategoryFilter('All');
     }
-  }, [mode]);
+  }, [mode, setMode]);
 
   const handleNodeSelect = useCallback((nodeId: string) => {
+    const node = nodes.find(n => n.id === nodeId);
+    if (node) {
+      // Find position of the node (taking manual positions into account)
+      const nodeX = manualPositions[nodeId]?.x ?? node.x;
+      const nodeY = manualPositions[nodeId]?.y ?? node.y;
+
+      // Add cascade effect at clicked coordinates
+      const effectId = `cascade-${nodeId}-${Date.now()}`;
+      setCascadeEffects(prev => [
+        ...prev,
+        {
+          id: effectId,
+          x: nodeX,
+          y: nodeY,
+          trigger: Date.now()
+        }
+      ]);
+
+      if (!node.isHub) {
+        setActiveChartNode(node);
+      }
+    }
+  }, [nodes, manualPositions]);
+
+  const toggleComparison = useCallback((nodeId: string) => {
     setSelectedNodes(prev => {
       const newSet = new Set(prev);
       if (newSet.has(nodeId)) {
@@ -100,15 +195,163 @@ export const Dashboard: React.FC = () => {
     setCascadeEffects(prev => prev.filter(effect => effect.id !== effectId));
   }, []);
 
+  const getSVGCoords = (e: React.MouseEvent | MouseEvent, svgElement: SVGSVGElement) => {
+    const CTM = svgElement.getScreenCTM();
+    if (!CTM) return { x: 0, y: 0 };
+    return {
+      x: (e.clientX - CTM.e) / CTM.a,
+      y: (e.clientY - CTM.f) / CTM.d
+    };
+  };
+
+  const handleDragStart = useCallback((nodeId: string, e: React.MouseEvent, nodeX: number, nodeY: number) => {
+    const svg = e.currentTarget.closest('svg');
+    if (!svg) return;
+
+    const coords = getSVGCoords(e, svg);
+    setDraggingNodeId(nodeId);
+    setDragOffset({
+      x: coords.x - nodeX,
+      y: coords.y - nodeY
+    });
+    e.stopPropagation();
+  }, []);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!draggingNodeId) return;
+
+    const svg = e.currentTarget.closest('svg');
+    if (!svg) return;
+
+    const coords = getSVGCoords(e, svg);
+
+    // Find node size for accurate boundary clamping during drag
+    const node = nodes.find(n => n.id === draggingNodeId);
+    const nodeSize = node ? node.size : 20;
+
+    const labelSafetyMarginX = 35;
+    const minX = Math.max(viewport.padding, labelSafetyMarginX) + nodeSize;
+    const maxX = viewport.width - Math.max(viewport.padding, labelSafetyMarginX) - nodeSize;
+    const minY = viewport.padding + nodeSize;
+    const maxY = viewport.height - viewport.padding - nodeSize - 40; // 40px safety for labels
+
+    const clampedX = Math.max(minX, Math.min(maxX, coords.x - dragOffset.x));
+    const clampedY = Math.max(minY, Math.min(maxY, coords.y - dragOffset.y));
+
+    const newPos = {
+      x: clampedX,
+      y: clampedY
+    };
+
+    setManualPositions(prev => {
+      const updated = {
+        ...prev,
+        [draggingNodeId]: newPos
+      };
+      localStorage.setItem('blotchain_positions', JSON.stringify(updated));
+      return updated;
+    });
+  }, [draggingNodeId, dragOffset, nodes, viewport]);
+
+  const handleMouseUp = useCallback(() => {
+    setDraggingNodeId(null);
+  }, []);
+
+  const resetLayout = useCallback(() => {
+    setManualPositions({});
+    localStorage.removeItem('blotchain_positions');
+  }, []);
+
+  const exportToJson = useCallback(() => {
+    const data = {
+      timestamp: new Date().toISOString(),
+      mode,
+      nodes,
+      connections,
+      manualPositions
+    };
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `blotchain-export-${mode}-${new Date().getTime()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [mode, nodes, connections, manualPositions]);
+
+  const exportToPng = useCallback(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+
+    const canvas = document.createElement('canvas');
+    const viewBoxWidth = Math.max(1, Math.round(svg.viewBox.baseVal.width || viewport.width));
+    const viewBoxHeight = Math.max(1, Math.round(svg.viewBox.baseVal.height || viewport.height));
+    canvas.width = viewBoxWidth * 2;
+    canvas.height = viewBoxHeight * 2;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Background
+    ctx.fillStyle = '#0f172a'; // slate-900
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(svgBlob);
+
+    const img = new Image();
+    img.onload = () => {
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+
+      const pngUrl = canvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = pngUrl;
+      a.download = `blotchain-snapshot-${mode}-${new Date().getTime()}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    };
+    img.src = url;
+  }, [mode, viewport]);
+
   const categories = useMemo(() => {
     const cats = new Set(nodes.filter(n => !n.isHub).map(n => n.category));
     return ['All', ...Array.from(cats)].sort();
   }, [nodes]);
 
   const filteredNodes = useMemo(() => {
-    if (categoryFilter === 'All') return nodes;
-    return nodes.filter(n => n.category === categoryFilter || n.isHub);
-  }, [nodes, categoryFilter]);
+    const baseNodes = categoryFilter === 'All'
+      ? nodes
+      : nodes.filter(n => n.category === categoryFilter || n.isHub);
+
+    const adaptedNodes = adaptNodesToViewport(baseNodes, viewport.width, viewport.height);
+
+    return adaptedNodes.map(node => {
+      const manual = manualPositions[node.id];
+      if (manual) {
+        const labelSafetyMarginX = 35;
+        const minX = Math.max(viewport.padding, labelSafetyMarginX) + node.size;
+        const maxX = viewport.width - Math.max(viewport.padding, labelSafetyMarginX) - node.size;
+        const minY = viewport.padding + node.size;
+        const maxY = viewport.height - viewport.padding - node.size - 40; // leave 40px for labels at bottom
+
+        return {
+          ...node,
+          x: Math.max(minX, Math.min(maxX, manual.x)),
+          y: Math.max(minY, Math.min(maxY, manual.y))
+        };
+      }
+      return node;
+    });
+  }, [nodes, categoryFilter, manualPositions, viewport]);
+
+  const filteredNodesMap = useMemo(() => {
+    return new Map<string, NodeType>(filteredNodes.map(node => [node.id, node]));
+  }, [filteredNodes]);
 
   const filteredConnections = useMemo(() => {
     const filteredNodeIds = new Set(filteredNodes.map(n => n.id));
@@ -128,7 +371,7 @@ export const Dashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 overflow-hidden">
+    <div className="h-screen h-[100dvh] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 overflow-hidden flex flex-col">
       <div className="absolute inset-0 opacity-10 pointer-events-none">
         <svg className="w-full h-full">
           <defs>
@@ -144,39 +387,52 @@ export const Dashboard: React.FC = () => {
         lastUpdate={lastUpdate}
         mode={mode}
         onModeSwitch={handleModeSwitch}
-        categories={categories}
-        categoryFilter={categoryFilter}
-        setCategoryFilter={setCategoryFilter}
         onOpenSettings={() => setIsSettingsOpen(true)}
         selectedCount={selectedNodes.size}
         onClearSelection={clearSelection}
+        viewMode={viewMode}
+        onViewModeSwitch={onViewModeSwitch}
       />
 
-      <div className="relative">
+      <div
+        ref={viewportRef}
+        className="relative flex-1 min-h-0 px-2 pb-2 sm:px-4 sm:pb-4"
+      >
         <svg 
-          viewBox="0 0 800 600" 
-          className="w-full h-screen max-w-full"
-          style={{ minHeight: '600px' }}
+          ref={svgRef}
+          viewBox={`0 0 ${viewport.width} ${viewport.height}`}
+          className="w-full h-full max-w-full rounded-lg"
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
         >
-          {filteredConnections.map(connection => (
-            <ConnectionComponent
-              key={connection.id}
-              connection={connection}
-              nodes={filteredNodes}
-              isHighlighted={
-                selectedNodes.has(connection.source) || 
-                selectedNodes.has(connection.target) ||
-                selectedNodes.size === 0
-              }
-              animationSettings={animationSettings}
-            />
-          ))}
+          {filteredConnections.map(connection => {
+            const sourceNode = filteredNodesMap.get(connection.source);
+            const targetNode = filteredNodesMap.get(connection.target);
+            if (!sourceNode || !targetNode) return null;
+            return (
+              <ConnectionComponent
+                key={connection.id}
+                connection={connection}
+                sourceNode={sourceNode}
+                targetNode={targetNode}
+                isHighlighted={
+                  selectedNodes.has(connection.source) ||
+                  selectedNodes.has(connection.target) ||
+                  selectedNodes.size === 0
+                }
+                animationSettings={animationSettings}
+                isDragging={draggingNodeId === connection.source || draggingNodeId === connection.target}
+              />
+            );
+          })}
           
           {filteredNodes.map(node => (
             <Node
               key={node.id}
               node={node}
               onSelect={handleNodeSelect}
+              onDragStart={(e) => handleDragStart(node.id, e, node.x, node.y)}
               onHover={handleNodeHover}
               onHoverEnd={handleNodeHoverEnd}
               isConnected={
@@ -184,6 +440,7 @@ export const Dashboard: React.FC = () => {
                 selectedNodes.size === 0
               }
               animationSettings={animationSettings}
+              isDragging={draggingNodeId === node.id}
             />
           ))}
           
@@ -199,10 +456,42 @@ export const Dashboard: React.FC = () => {
         </svg>
 
         {loading && nodes.length > 0 && (
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-blue-600/90 text-white px-4 py-1 rounded-full text-xs font-bold animate-pulse">
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-blue-600/90 text-white px-4 py-1 rounded-full text-xs font-bold animate-pulse z-20">
             UPDATING LIVE DATA...
           </div>
         )}
+
+        {/* Floating Controls Overlays */}
+        <LiveStatus
+          nodeCount={nodes.length}
+          connectionCount={connections.length}
+          mode={mode}
+          className="absolute top-4 right-4 z-10"
+        />
+
+        <div className="absolute bottom-4 left-4 z-10 flex flex-col gap-2 max-w-[calc(100%-32px)]">
+          <Legend
+            mode={mode}
+            className="bg-gray-900 bg-opacity-90 backdrop-blur-sm border border-gray-700 rounded-lg p-3 w-full"
+          />
+          {/* Category Filter positioned vertically below the Legend panel */}
+          <div className="flex items-center gap-1 sm:gap-2 bg-gray-900 bg-opacity-95 backdrop-blur-sm p-1.5 rounded-lg border border-gray-700 overflow-x-auto max-w-full">
+            {categories.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setCategoryFilter(cat)}
+                className={`px-2.5 py-1 text-[10px] sm:text-xs rounded-md transition-all whitespace-nowrap font-medium ${
+                  categoryFilter === cat
+                    ? mode === 'crypto' ? 'bg-blue-600 text-white shadow-lg' : 'bg-purple-600 text-white shadow-lg'
+                    : 'text-gray-400 hover:text-gray-200 hover:bg-slate-800'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        </div>
+
       </div>
 
       <Tooltip data={tooltip} />
@@ -214,6 +503,9 @@ export const Dashboard: React.FC = () => {
         setRefreshInterval={setRefreshInterval}
         animationSettings={animationSettings}
         setAnimationSettings={setAnimationSettings}
+        onResetLayout={resetLayout}
+        onExportJson={exportToJson}
+        onExportPng={exportToPng}
       />
 
       <ComparisonPanel
@@ -221,12 +513,10 @@ export const Dashboard: React.FC = () => {
         onClear={clearSelection}
       />
 
-      <Legend mode={mode} />
-
-      <LiveStatus
-        nodeCount={nodes.length}
-        connectionCount={connections.length}
-        mode={mode}
+      <ChartModal
+        node={activeChartNode}
+        onClose={() => setActiveChartNode(null)}
+        onAddToComparison={toggleComparison}
       />
     </div>
   );

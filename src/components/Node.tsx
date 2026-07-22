@@ -4,56 +4,73 @@ import { Node as NodeType, AnimationSettings } from '../types';
 interface NodeProps {
   node: NodeType;
   onSelect: (nodeId: string) => void;
+  onDragStart: (e: React.MouseEvent) => void;
   onHover: (node: NodeType, x: number, y: number) => void;
   onHoverEnd: () => void;
   isConnected: boolean;
   animationSettings: AnimationSettings;
+  isDragging?: boolean;
 }
 
 export const Node: React.FC<NodeProps> = React.memo(({
   node, 
-  onSelect, 
+  onSelect,
+  onDragStart,
   onHover, 
   onHoverEnd, 
   isConnected,
-  animationSettings
+  animationSettings,
+  isDragging = false
 }) => {
   const [scale, setScale] = useState(1);
-  const [breatheScale, setBreatheScale] = useState(1);
-
-  useEffect(() => {
-    if (!animationSettings.enabled || animationSettings.breathingIntensity === 0) {
-      setBreatheScale(1);
-      return;
-    }
-
-    // Breathing animation
-    const interval = setInterval(() => {
-      setBreatheScale(1 + Math.sin(Date.now() * 0.001) * 0.03 * animationSettings.breathingIntensity);
-    }, 50);
-
-    return () => clearInterval(interval);
-  }, [animationSettings.enabled, animationSettings.breathingIntensity]);
 
   useEffect(() => {
     // Scale animation when node data changes
     if (Math.abs(node.change24h) > 15) {
       setScale(1.1);
-      setTimeout(() => setScale(1), 300);
+      const timer = setTimeout(() => setScale(1), 300);
+      return () => clearTimeout(timer);
     }
   }, [node.lastUpdated, node.change24h]);
 
   const opacity = node.isSelected || isConnected ? 1 : 0.8;
   const glowIntensity = node.isSelected ? 15 : 0;
+  const [dragStarted, setDragStarted] = useState(false);
+  const [mouseDownPos, setMouseDownPos] = useState({ x: 0, y: 0 });
+
+  const breathingIntensity = animationSettings.enabled ? animationSettings.breathingIntensity : 0;
+  const transformStyle = {
+    '--breathing-intensity': breathingIntensity,
+    '--transform-origin-x': `${node.x}px`,
+    '--transform-origin-y': `${node.y}px`,
+    transform: `scale(${scale})`,
+    cursor: isDragging ? 'grabbing' : 'grab',
+    opacity: isConnected || node.isSelected ? 1 : 0.9,
+    filter: `drop-shadow(0 4px 8px rgba(0,0,0,0.3)) ${node.isSelected ? `drop-shadow(0 0 ${glowIntensity}px ${node.color})` : ''}`,
+    transition: isDragging ? 'none' : 'transform 0.1s ease-out'
+  } as React.CSSProperties;
 
   return (
     <g
-      style={{
-        cursor: 'pointer',
-        opacity: isConnected || node.isSelected ? 1 : 0.9,
-        filter: `drop-shadow(0 4px 8px rgba(0,0,0,0.3)) ${node.isSelected ? `drop-shadow(0 0 ${glowIntensity}px ${node.color})` : ''}`
+      className={breathingIntensity > 0 ? 'animate-breathe' : ''}
+      style={transformStyle}
+      onMouseDown={(e) => {
+        setDragStarted(false);
+        setMouseDownPos({ x: e.clientX, y: e.clientY });
+        onDragStart(e);
       }}
-      onClick={() => onSelect(node.id)}
+      onClick={(e) => {
+        // Only trigger selection if we didn't drag
+        if (!dragStarted) {
+          onSelect(node.id);
+        }
+        e.stopPropagation();
+      }}
+      onMouseMove={(e) => {
+        if (!dragStarted && (Math.abs(e.clientX - mouseDownPos.x) > 5 || Math.abs(e.clientY - mouseDownPos.y) > 5)) {
+          setDragStarted(true);
+        }
+      }}
       onMouseEnter={(e) => {
         const rect = (e.target as SVGElement).getBoundingClientRect();
         onHover(node, rect.left + rect.width / 2, rect.top - 10);
@@ -64,27 +81,27 @@ export const Node: React.FC<NodeProps> = React.memo(({
         <g>
           <defs>
             <clipPath id={`clip-${node.id}`}>
-              <circle cx={node.x} cy={node.y} r={node.size * scale * breatheScale} />
+              <circle cx={node.x} cy={node.y} r={node.size} />
             </clipPath>
           </defs>
           <image
             xlinkHref={node.image}
-            x={node.x - node.size * scale * breatheScale}
-            y={node.y - node.size * scale * breatheScale}
-            width={node.size * 2 * scale * breatheScale}
-            height={node.size * 2 * scale * breatheScale}
+            x={node.x - node.size}
+            y={node.y - node.size}
+            width={node.size * 2}
+            height={node.size * 2}
             clipPath={`url(#clip-${node.id})`}
           />
           <circle
             cx={node.x}
             cy={node.y}
-            r={node.size * scale * breatheScale}
+            r={node.size}
             fill="none"
             stroke={node.color}
             strokeWidth={node.isSelected ? 4 : 2}
             opacity={opacity}
             style={{
-              transition: 'all 0.8s ease-in-out',
+              transition: isDragging ? 'none' : 'all 0.8s ease-in-out',
               pointerEvents: 'none'
             }}
           />
@@ -93,11 +110,11 @@ export const Node: React.FC<NodeProps> = React.memo(({
         <circle
           cx={node.x}
           cy={node.y}
-          r={node.size * scale * breatheScale}
+          r={node.size}
           fill={node.color}
           opacity={opacity}
           style={{
-            transition: 'all 0.8s ease-in-out',
+            transition: isDragging ? 'none' : 'all 0.8s ease-in-out',
             strokeWidth: node.isSelected ? 3 : 0,
             stroke: node.isSelected ? '#ffffff' : 'none'
           }}
@@ -109,11 +126,11 @@ export const Node: React.FC<NodeProps> = React.memo(({
         <circle
           cx={node.x}
           cy={node.y}
-          r={node.size * scale * breatheScale * 0.7}
+          r={node.size * 0.7}
           fill={node.color}
           opacity={0.3}
           style={{
-            transition: 'all 0.8s ease-in-out',
+            transition: isDragging ? 'none' : 'all 0.8s ease-in-out',
             pointerEvents: 'none'
           }}
         />

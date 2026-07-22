@@ -3,9 +3,11 @@ import { Connection as ConnectionType, Node, Particle as ParticleType, Animation
 
 interface ConnectionProps {
   connection: ConnectionType;
-  nodes: Node[];
+  sourceNode: Node;
+  targetNode: Node;
   isHighlighted: boolean;
   animationSettings: AnimationSettings;
+  isDragging?: boolean;
 }
 
 const Particle: React.FC<{ 
@@ -48,32 +50,48 @@ const Particle: React.FC<{
 
 export const Connection: React.FC<ConnectionProps> = React.memo(({
   connection, 
-  nodes, 
+  sourceNode,
+  targetNode,
   isHighlighted,
-  animationSettings
+  animationSettings,
+  isDragging
 }) => {
-  const sourceNode = nodes.find(n => n.id === connection.source);
-  const targetNode = nodes.find(n => n.id === connection.target);
-
   if (!sourceNode || !targetNode) return null;
 
   const dx = targetNode.x - sourceNode.x;
   const dy = targetNode.y - sourceNode.y;
-  const distance = Math.sqrt(dx * dx + dy * dy);
+  const distance = Math.sqrt(dx * dx + dy * dy) || 0.001;
   
-  // Control points for Bézier curve
-  const controlOffset = distance * 0.3;
-  const midX = (sourceNode.x + targetNode.x) / 2;
-  const midY = (sourceNode.y + targetNode.y) / 2;
-  const perpX = -dy / distance * controlOffset;
-  const perpY = dx / distance * controlOffset;
+  const ux = dx / distance;
+  const uy = dy / distance;
+
+  // Offset the start and end coordinates by the node radius plus a 20% protective collision buffer
+  const startOffset = sourceNode.size * 1.20;
+  const endOffset = targetNode.size * 1.20;
+
+  const startX = sourceNode.x + ux * startOffset;
+  const startY = sourceNode.y + uy * startOffset;
+  const endX = targetNode.x - ux * endOffset;
+  const endY = targetNode.y - uy * endOffset;
+
+  // Control points for Bézier curve using the adjusted coordinates
+  const adjustedDx = endX - startX;
+  const adjustedDy = endY - startY;
+  const adjustedDistance = Math.sqrt(adjustedDx * adjustedDx + adjustedDy * adjustedDy) || 0.001;
+
+  const controlOffset = adjustedDistance * 0.3;
+  const midX = (startX + endX) / 2;
+  const midY = (startY + endY) / 2;
+  const perpX = -adjustedDy / adjustedDistance * controlOffset;
+  const perpY = adjustedDx / adjustedDistance * controlOffset;
 
   const pathId = `path-${connection.id}`;
-  const pathData = `M ${sourceNode.x} ${sourceNode.y} Q ${midX + perpX} ${midY + perpY} ${targetNode.x} ${targetNode.y}`;
+  const pathData = `M ${startX} ${startY} Q ${midX + perpX} ${midY + perpY} ${endX} ${endY}`;
   
   const strokeWidth = Math.max(2, Math.min(12, connection.flow / 5000000));
   const color = connection.direction === 'in' ? '#3b82f6' : '#f97316';
   const opacity = isHighlighted ? 1 : 0.6;
+  const isDraggingAny = isDragging || false;
 
   return (
     <g>
@@ -95,7 +113,7 @@ export const Connection: React.FC<ConnectionProps> = React.memo(({
         strokeLinecap="round"
         opacity={opacity}
         style={{
-          transition: 'all 0.8s ease-in-out',
+          transition: isDraggingAny ? 'none' : 'all 0.8s ease-in-out',
           filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))'
         }}
       />
@@ -109,7 +127,7 @@ export const Connection: React.FC<ConnectionProps> = React.memo(({
         strokeLinecap="round"
         opacity={0.2}
         style={{
-          transition: 'all 0.8s ease-in-out'
+          transition: isDraggingAny ? 'none' : 'all 0.8s ease-in-out'
         }}
       >
         <animate
@@ -132,13 +150,13 @@ export const Connection: React.FC<ConnectionProps> = React.memo(({
       
       {/* Flow direction indicator */}
       <circle
-        cx={targetNode.x}
-        cy={targetNode.y}
+        cx={endX}
+        cy={endY}
         r="6"
         fill={color}
         opacity={opacity * 0.8}
         style={{
-          transition: 'all 0.8s ease-in-out'
+          transition: isDraggingAny ? 'none' : 'all 0.8s ease-in-out'
         }}
       />
     </g>
