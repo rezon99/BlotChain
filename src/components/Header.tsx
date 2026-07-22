@@ -9,6 +9,8 @@ interface HeaderProps {
   onOpenSettings: () => void;
   selectedCount: number;
   onClearSelection: () => void;
+  viewMode?: '2d' | '3d';
+  onViewModeSwitch?: (viewMode: '2d' | '3d') => void;
 }
 
 export const Header: React.FC<HeaderProps> = React.memo(({
@@ -17,7 +19,9 @@ export const Header: React.FC<HeaderProps> = React.memo(({
   onModeSwitch,
   onOpenSettings,
   selectedCount,
-  onClearSelection
+  onClearSelection,
+  viewMode = '2d',
+  onViewModeSwitch
 }) => {
   return (
     <div className="relative z-10 px-3 py-3 sm:px-4 sm:py-2 md:py-3 md:px-6">
@@ -34,25 +38,52 @@ export const Header: React.FC<HeaderProps> = React.memo(({
           </p>
         </div>
 
-        <div className="flex bg-slate-800/80 p-1 rounded-xl border border-slate-700 backdrop-blur-md w-full lg:w-auto overflow-x-auto">
-          <button
-            onClick={() => onModeSwitch('crypto')}
-            className={`flex items-center gap-2 px-3 py-2 sm:px-4 rounded-lg text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
-              mode === 'crypto' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-gray-200'
-            }`}
-          >
-            <Coins size={16} />
-            CRYPTOCURRENCY
-          </button>
-          <button
-            onClick={() => onModeSwitch('nft')}
-            className={`flex items-center gap-2 px-3 py-2 sm:px-4 rounded-lg text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
-              mode === 'nft' ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-400 hover:text-gray-200'
-            }`}
-          >
-            <ImageIcon size={16} />
-            NFT COLLECTIONS
-          </button>
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full lg:w-auto">
+          {/* Dashboard Mode Switcher */}
+          <div className="flex bg-slate-800/80 p-1 rounded-xl border border-slate-700 backdrop-blur-md overflow-x-auto gap-1">
+            <button
+              onClick={() => onModeSwitch('crypto')}
+              className={`flex items-center gap-2 px-3 py-1.5 sm:px-4 rounded-lg text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
+                mode === 'crypto' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              <Coins size={16} />
+              CRYPTOCURRENCY
+            </button>
+            <button
+              onClick={() => onModeSwitch('nft')}
+              className={`flex items-center gap-2 px-3 py-1.5 sm:px-4 rounded-lg text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
+                mode === 'nft' ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              <ImageIcon size={16} />
+              NFT COLLECTIONS
+            </button>
+          </div>
+
+          {/* View Mode (2D / 3D) Switcher */}
+          {onViewModeSwitch && (
+            <div className="flex bg-slate-800/80 p-1 rounded-xl border border-slate-700 backdrop-blur-md overflow-x-auto gap-1">
+              <button
+                onClick={() => onViewModeSwitch('2d')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-4 rounded-lg text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
+                  viewMode === '2d' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                <span className="text-[10px] bg-slate-900/60 text-indigo-300 px-1 py-0.5 rounded">2D</span>
+                DASHBOARD
+              </button>
+              <button
+                onClick={() => onViewModeSwitch('3d')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-4 rounded-lg text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
+                  viewMode === '3d' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                <span className="text-[10px] bg-slate-900/60 text-indigo-300 px-1 py-0.5 rounded">3D</span>
+                SPACE
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2 sm:gap-4 flex-wrap w-auto">
