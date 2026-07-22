@@ -15,8 +15,22 @@ import { ChartModal } from './ChartModal';
 import { useRealTimeData } from '../hooks/useRealTimeData';
 import { adaptNodesToViewport, getResponsiveViewport } from '../utils/dataTransformer';
 
-export const Dashboard: React.FC = () => {
-  const [mode, setMode] = useState<DashboardMode>('crypto');
+interface DashboardProps {
+  mode?: DashboardMode;
+  onModeSwitch?: (mode: DashboardMode) => void;
+  viewMode?: '2d' | '3d';
+  onViewModeSwitch?: (viewMode: '2d' | '3d') => void;
+}
+
+export const Dashboard: React.FC<DashboardProps> = ({
+  mode: propMode,
+  onModeSwitch: propOnModeSwitch,
+  viewMode = '2d',
+  onViewModeSwitch
+}) => {
+  const [internalMode, setInternalMode] = useState<DashboardMode>('crypto');
+  const mode = propMode ?? internalMode;
+  const setMode = propOnModeSwitch ?? setInternalMode;
 
   const [refreshInterval, setRefreshInterval] = useState<number>(() => {
     const saved = localStorage.getItem('blotchain_refresh_interval');
@@ -100,7 +114,7 @@ export const Dashboard: React.FC = () => {
       setSelectedNodes(new Set());
       setCategoryFilter('All');
     }
-  }, [mode]);
+  }, [mode, setMode]);
 
   const handleNodeSelect = useCallback((nodeId: string) => {
     const node = nodes.find(n => n.id === nodeId);
@@ -376,6 +390,8 @@ export const Dashboard: React.FC = () => {
         onOpenSettings={() => setIsSettingsOpen(true)}
         selectedCount={selectedNodes.size}
         onClearSelection={clearSelection}
+        viewMode={viewMode}
+        onViewModeSwitch={onViewModeSwitch}
       />
 
       <div
