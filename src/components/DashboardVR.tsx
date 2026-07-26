@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { Node as NodeType, TooltipData, AnimationSettings, DashboardMode } from '../types';
+import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
+import { Node as NodeType, AnimationSettings, DashboardMode } from '../types';
 import { useRealTimeData } from '../hooks/useRealTimeData';
 import { Header } from './Header';
 import { Legend } from './Legend';
@@ -13,17 +14,15 @@ import { ComparisonPanel } from './ComparisonPanel';
 import { LoadingSpinner } from './LoadingSpinner';
 import { ErrorDisplay } from './ErrorDisplay';
 
-interface Dashboard3DProps {
+interface DashboardVRProps {
   mode: DashboardMode;
   onModeSwitch: (mode: DashboardMode) => void;
-  viewMode?: '2d' | '3d' | 'vr';
-  onViewModeSwitch?: (viewMode: '2d' | '3d' | 'vr') => void;
+  onViewModeSwitch: (viewMode: '2d' | '3d' | 'vr') => void;
 }
 
-export const Dashboard3D: React.FC<Dashboard3DProps> = ({
+export const DashboardVR: React.FC<DashboardVRProps> = ({
   mode,
   onModeSwitch,
-  viewMode = '3d',
   onViewModeSwitch
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -49,63 +48,63 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
   });
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [tooltip, setTooltip] = useState<TooltipData>({
+  const [tooltip, setTooltip] = useState({
     node: {} as NodeType,
     x: 0,
     y: 0,
     visible: false
   });
 
-  // Calculate uniform 3D spherical positions for the nodes
-  const nodes3D = useMemo(() => {
+  // Calculate uniform 3D spherical positions centered around standard human eye height (y = 1.6)
+  const nodesVR = useMemo(() => {
     if (nodes.length === 0) return [];
 
-    // Separate nodes into different types to form hierarchical 3D shells
     const hubs = nodes.filter(n => n.isHub);
     const cex = nodes.filter(n => n.category === 'CEX' && !n.isHub);
     const others = nodes.filter(n => !n.isHub && n.category !== 'CEX');
 
     const result: Array<NodeType & { x3d: number; y3d: number; z3d: number }> = [];
+    const centerY = 1.6; // VR standard eye/standing height in meters
 
-    // 1. Core Hubs: place near the center in a small cluster
+    // 1. Core Hubs: place near the center
     hubs.forEach((node, idx) => {
       const angle = (idx / hubs.length) * Math.PI * 2;
       result.push({
         ...node,
-        x3d: Math.cos(angle) * 5,
-        y3d: Math.sin(angle) * 3,
-        z3d: (idx % 2 === 0 ? 1 : -1) * 2
+        x3d: Math.cos(angle) * 3,
+        y3d: centerY + Math.sin(angle) * 1.5,
+        z3d: (idx % 2 === 0 ? 1 : -1) * 1
       });
     });
 
-    // 2. CEX nodes: place in an intermediate shell
+    // 2. CEX nodes: intermediate shell
     cex.forEach((node, idx) => {
       const u = idx / cex.length;
       const theta = u * Math.PI * 2.0;
       const phi = Math.acos(2.0 * u - 1.0) - Math.PI / 2.0;
-      const radius = 15;
+      const radius = 8;
       result.push({
         ...node,
         x3d: radius * Math.cos(phi) * Math.cos(theta),
-        y3d: radius * Math.sin(phi),
+        y3d: centerY + radius * Math.sin(phi) * 0.8,
         z3d: radius * Math.cos(phi) * Math.sin(theta)
       });
     });
 
-    // 3. Others (Altcoins, Stablecoins, Protocols, AMMs): outer shell using a uniform Fibonacci sphere
+    // 3. Others: outer shell surrounding the player in 360 degrees
     const count = others.length;
-    const phiGold = Math.PI * (3.0 - Math.sqrt(5.0)); // golden angle in radians
+    const phiGold = Math.PI * (3.0 - Math.sqrt(5.0));
 
     others.forEach((node, idx) => {
-      const radius = 28 + (idx % 3) * 2; // subtle radial variance to prevent perfect alignment overlap
-      const y = 1.0 - (idx / (count - 1)) * 2.0; // y goes from 1 to -1
-      const radiusAtY = Math.sqrt(1.0 - y * y); // radius at y
-      const theta = phiGold * idx; // golden angle increment
+      const radius = 14 + (idx % 2) * 1.5;
+      const y = 1.0 - (idx / (count - 1)) * 2.0;
+      const radiusAtY = Math.sqrt(1.0 - y * y);
+      const theta = phiGold * idx;
 
       result.push({
         ...node,
         x3d: radius * radiusAtY * Math.cos(theta),
-        y3d: radius * y,
+        y3d: centerY + radius * y * 0.7,
         z3d: radius * radiusAtY * Math.sin(theta)
       });
     });
@@ -113,26 +112,24 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
     return result;
   }, [nodes]);
 
-  // Categories helper
   const categories = useMemo(() => {
     const cats = new Set(nodes.filter(n => !n.isHub).map(n => n.category));
     return ['All', ...Array.from(cats)].sort();
   }, [nodes]);
 
-  // Filtered nodes in 3D
-  const filteredNodes3D = useMemo(() => {
-    return nodes3D.map(node => {
+  const filteredNodesVR = useMemo(() => {
+    return nodesVR.map(node => {
       const isVisible = categoryFilter === 'All' || node.category === categoryFilter || node.isHub;
       return {
         ...node,
         opacity3d: isVisible ? 1.0 : 0.15
       };
     });
-  }, [nodes3D, categoryFilter]);
+  }, [nodesVR, categoryFilter]);
 
-  const filteredNodes3DMap = useMemo(() => {
-    return new Map(filteredNodes3D.map(n => [n.id, n]));
-  }, [filteredNodes3D]);
+  const filteredNodesVRMap = useMemo(() => {
+    return new Map(filteredNodesVR.map(n => [n.id, n]));
+  }, [filteredNodesVR]);
 
   const selectedNodeData = useMemo(() => {
     return nodes.filter(n => selectedNodes.has(n.id));
@@ -158,26 +155,29 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
     });
   }, []);
 
-  // Set up three.js scene inside useEffect
   useEffect(() => {
     const container = containerRef.current;
     const canvas = canvasRef.current;
-    if (!container || !canvas || filteredNodes3D.length === 0) return;
+    if (!container || !canvas || filteredNodesVR.length === 0) return;
 
-    // Get real canvas dimension
     const width = container.clientWidth;
     const height = container.clientHeight;
 
-    // Create scene with deep background and subtle fog
+    // Create scene
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color('#0f172a'); // slate-900
-    scene.fog = new THREE.FogExp2('#0f172a', 0.015);
+    scene.background = new THREE.Color('#030712'); // extremely dark space slate-950
+    scene.fog = new THREE.FogExp2('#030712', 0.02);
+
+    // Group that contains the entire constellation (enables smooth auto-rotation)
+    const constellationGroup = new THREE.Group();
+    scene.add(constellationGroup);
 
     // Camera
-    const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 1000);
-    camera.position.set(0, 15, 55);
+    const camera = new THREE.PerspectiveCamera(65, width / height, 0.1, 1000);
+    // VR standard starting position (player standing at center of constellation)
+    camera.position.set(0, 1.6, 6);
 
-    // Renderer
+    // Renderer with WebXR enabled
     const renderer = new THREE.WebGLRenderer({
       canvas,
       antialias: true,
@@ -186,155 +186,160 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
     });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(width, height);
+    renderer.xr.enabled = true;
+
+    // Append the VRButton overlay
+    const vrButton = VRButton.createButton(renderer);
+    vrButton.style.position = 'absolute';
+    vrButton.style.bottom = '24px';
+    vrButton.style.left = '50%';
+    vrButton.style.transform = 'translateX(-50%)';
+    vrButton.style.background = 'rgba(79, 70, 229, 0.9)'; // indigo-600
+    vrButton.style.border = '1px solid rgba(129, 140, 248, 0.4)';
+    vrButton.style.borderRadius = '8px';
+    vrButton.style.color = 'white';
+    vrButton.style.padding = '8px 16px';
+    vrButton.style.fontFamily = 'system-ui, sans-serif';
+    vrButton.style.fontSize = '13px';
+    vrButton.style.fontWeight = 'bold';
+    vrButton.style.zIndex = '30';
+    container.appendChild(vrButton);
 
     // Lights
-    const ambientLight = new THREE.AmbientLight('#1e293b', 1.5); // soft slate ambient
+    const ambientLight = new THREE.AmbientLight('#0f172a', 1.8);
     scene.add(ambientLight);
 
-    const pointLight = new THREE.PointLight('#ffffff', 2, 120);
-    pointLight.position.set(0, 10, 0);
-    scene.add(pointLight);
+    const pointLight = new THREE.PointLight('#ffffff', 2.5, 60);
+    pointLight.position.set(0, 4, 0);
+    constellationGroup.add(pointLight);
 
-    const dirLight1 = new THREE.DirectionalLight('#3b82f6', 1); // blue side light
-    dirLight1.position.set(30, 20, 20);
-    scene.add(dirLight1);
+    const dirLight1 = new THREE.DirectionalLight('#4f46e5', 1.2); // indigo
+    dirLight1.position.set(20, 10, 10);
+    constellationGroup.add(dirLight1);
 
-    const dirLight2 = new THREE.DirectionalLight('#8b5cf6', 1); // purple counter-light
-    dirLight2.position.set(-30, -20, -20);
-    scene.add(dirLight2);
+    const dirLight2 = new THREE.DirectionalLight('#a855f7', 1.2); // purple
+    dirLight2.position.set(-20, -10, -10);
+    constellationGroup.add(dirLight2);
 
-    // Orbit Controls
+    // Flat screen drag-to-look fallback (OrbitControls)
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
-    controls.maxDistance = 150;
-    controls.minDistance = 5;
+    controls.target.set(0, 1.6, 0); // focus camera target on eye-height center
+    controls.maxDistance = 45;
+    controls.minDistance = 1.5;
 
     // Shared sphere geometry
-    const sphereGeo = new THREE.SphereGeometry(1, 32, 32);
-
-    // Map to hold references to Three.js Object3D for raycasting and hover
+    const sphereGeo = new THREE.SphereGeometry(1, 24, 24);
     const nodeMeshes: THREE.Group[] = [];
-    const nodeIdToMesh = new Map<string, THREE.Group>();
 
-    // Dynamic scale helper based on node.size
-    const getNodeRadius = (size: number) => size / 22;
+    const getNodeRadius = (size: number) => size / 26;
 
-    // Texture creation helper for dynamic high-quality sprites
+    // Sprite text texture builder
     const createTextTexture = (name: string, category: string, isHub: boolean, opacity: number) => {
       const textCanvas = document.createElement('canvas');
-      textCanvas.width = 256;
-      textCanvas.height = 128;
+      textCanvas.width = 192;
+      textCanvas.height = 96;
       const ctx = textCanvas.getContext('2d');
       if (!ctx) return null;
 
-      // Transparent background
-      ctx.clearRect(0, 0, 256, 128);
+      ctx.clearRect(0, 0, 192, 96);
 
-      // Label background bubble
       ctx.fillStyle = `rgba(15, 23, 42, ${0.85 * opacity})`;
-      ctx.strokeStyle = `rgba(71, 85, 105, ${0.6 * opacity})`;
+      ctx.strokeStyle = `rgba(71, 85, 105, ${0.5 * opacity})`;
       ctx.lineWidth = 2;
 
-      const rectX = 16;
-      const rectY = 16;
-      const rectW = 224;
-      const rectH = 80;
-      const radius = 12;
+      const rX = 8;
+      const rY = 8;
+      const rW = 176;
+      const rH = 64;
+      const rad = 8;
 
-      // Draw rounded rectangle
       ctx.beginPath();
-      ctx.moveTo(rectX + radius, rectY);
-      ctx.lineTo(rectX + rectW - radius, rectY);
-      ctx.quadraticCurveTo(rectX + rectW, rectY, rectX + rectW, rectY + radius);
-      ctx.lineTo(rectX + rectW, rectY + rectH - radius);
-      ctx.quadraticCurveTo(rectX + rectW, rectY + rectH, rectX + rectW - radius, rectY + rectH);
-      ctx.lineTo(rectX + radius, rectY + rectH);
-      ctx.quadraticCurveTo(rectX, rectY + rectH, rectX, rectY + rectH - radius);
-      ctx.lineTo(rectX, rectY + radius);
-      ctx.quadraticCurveTo(rectX, rectY, rectX + radius, rectY);
+      ctx.moveTo(rX + rad, rY);
+      ctx.lineTo(rX + rW - rad, rY);
+      ctx.quadraticCurveTo(rX + rW, rY, rX + rW, rY + rad);
+      ctx.lineTo(rX + rW, rY + rH - rad);
+      ctx.quadraticCurveTo(rX + rW, rY + rH, rX + rW - rad, rY + rH);
+      ctx.lineTo(rX + rad, rY + rH);
+      ctx.quadraticCurveTo(rX, rY + rH, rX, rY + rH - rad);
+      ctx.lineTo(rX, rY + rad);
+      ctx.quadraticCurveTo(rX, rY, rX + rad, rY);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
 
-      // Draw primary text (Name)
       ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
-      ctx.font = 'bold 24px system-ui, sans-serif';
+      ctx.font = 'bold 18px system-ui, sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(name, 128, 44);
+      ctx.fillText(name, 96, 30);
 
-      // Draw secondary text (Category)
-      ctx.fillStyle = `rgba(148, 163, 184, ${0.9 * opacity})`; // slate-400
-      ctx.font = '500 16px system-ui, sans-serif';
-      ctx.fillText(isHub ? 'Hub' : category, 128, 76);
+      ctx.fillStyle = `rgba(148, 163, 184, ${0.9 * opacity})`;
+      ctx.font = '500 12px system-ui, sans-serif';
+      ctx.fillText(isHub ? 'Hub' : category, 96, 52);
 
       const texture = new THREE.CanvasTexture(textCanvas);
       texture.minFilter = THREE.LinearFilter;
       return texture;
     };
 
-    // Render Node Spheres & Text Sprites
-    filteredNodes3D.forEach(node => {
+    // Render node spheres and facing sprites inside constellation
+    filteredNodesVR.forEach(node => {
       const nodeGroup = new THREE.Group();
       nodeGroup.position.set(node.x3d, node.y3d, node.z3d);
       nodeGroup.userData = { nodeId: node.id, nodeData: node };
 
       const r = getNodeRadius(node.size);
-
-      // Material with glowing emissive category brand color
       const isSelected = selectedNodes.has(node.id);
       const isHighlighted = selectedNodes.size === 0 || selectedNodes.has(node.id);
       const finalOpacity = node.opacity3d * (isHighlighted ? 1.0 : 0.25);
 
       const sphereMat = new THREE.MeshStandardMaterial({
         color: new THREE.Color(node.color),
-        roughness: 0.2,
+        roughness: 0.3,
         metalness: 0.1,
         transparent: true,
         opacity: finalOpacity,
         emissive: new THREE.Color(node.color),
-        emissiveIntensity: isSelected ? 1.0 : (node.isHub ? 0.3 : 0.15)
+        emissiveIntensity: isSelected ? 0.9 : (node.isHub ? 0.35 : 0.15)
       });
 
       const sphereMesh = new THREE.Mesh(sphereGeo, sphereMat);
       sphereMesh.scale.setScalar(r);
       nodeGroup.add(sphereMesh);
 
-      // Dynamic Sprite Label
-      const labelTexture = createTextTexture(node.name, node.category, !!node.isHub, finalOpacity);
-      if (labelTexture) {
+      // Sprites facing camera
+      const textTex = createTextTexture(node.name, node.category, !!node.isHub, finalOpacity);
+      if (textTex) {
         const spriteMat = new THREE.SpriteMaterial({
-          map: labelTexture,
+          map: textTex,
           transparent: true,
           opacity: finalOpacity,
           depthWrite: false
         });
         const sprite = new THREE.Sprite(spriteMat);
-        // Position label sprite directly above the node sphere, taking sphere radius into account
-        sprite.position.set(0, r + 1.8, 0);
-        sprite.scale.set(4.5, 2.25, 1);
+        sprite.position.set(0, r + 0.9, 0);
+        sprite.scale.set(3, 1.5, 1);
         nodeGroup.add(sprite);
       }
 
-      scene.add(nodeGroup);
+      constellationGroup.add(nodeGroup);
       nodeMeshes.push(nodeGroup);
-      nodeIdToMesh.set(node.id, nodeGroup);
     });
 
-    // Create Connection Lines (3D paths)
+    // Connections
     const lineMaterial = new THREE.LineBasicMaterial({
-      color: '#475569', // slate-600
+      color: '#334155',
       transparent: true,
-      opacity: 0.35,
+      opacity: 0.3,
       depthWrite: false
     });
 
     const activeLineMaterial = new THREE.LineBasicMaterial({
-      color: '#3b82f6', // blue-500
+      color: '#4f46e5', // indigo
       transparent: true,
-      opacity: 0.85,
-      linewidth: 2, // only works on some platforms, standard fallback exists
+      opacity: 0.8,
       depthWrite: false
     });
 
@@ -348,61 +353,83 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
     }
 
     const connectionRefs: ConnectionRef[] = [];
-    const particleGeo = new THREE.SphereGeometry(0.12, 16, 16);
+    const particleGeo = new THREE.SphereGeometry(0.08, 12, 12);
 
     connections.forEach(conn => {
-      const srcNode = filteredNodes3DMap.get(conn.source);
-      const tgtNode = filteredNodes3DMap.get(conn.target);
-      if (!srcNode || !tgtNode) return;
+      const src = filteredNodesVRMap.get(conn.source);
+      const tgt = filteredNodesVRMap.get(conn.target);
+      if (!src || !tgt) return;
 
-      const p1 = new THREE.Vector3(srcNode.x3d, srcNode.y3d, srcNode.z3d);
-      const p2 = new THREE.Vector3(tgtNode.x3d, tgtNode.y3d, tgtNode.z3d);
+      const p1 = new THREE.Vector3(src.x3d, src.y3d, src.z3d);
+      const p2 = new THREE.Vector3(tgt.x3d, tgt.y3d, tgt.z3d);
 
-      // Implement the 20% Connection Guide Lines Collision Buffer
       const vector = new THREE.Vector3().subVectors(p2, p1);
-      const totalLen = vector.length();
+      const length = vector.length();
 
-      const r1 = getNodeRadius(srcNode.size) * 1.20; // 20% protective offset
-      const r2 = getNodeRadius(tgtNode.size) * 1.20; // 20% protective offset
+      const r1 = getNodeRadius(src.size) * 1.20; // 20% protective offset
+      const r2 = getNodeRadius(tgt.size) * 1.20; // 20% protective offset
 
-      if (totalLen <= r1 + r2) return; // safety, avoid degenerate lines
+      if (length <= r1 + r2) return;
 
-      // Safe connection path offset bounds
       const p1Offset = p1.clone().addScaledVector(vector.clone().normalize(), r1);
-      const p2Offset = p2.clone().addScaledVector(vector.clone().normalize(), -(r2));
+      const p2Offset = p2.clone().addScaledVector(vector.clone().normalize(), -r2);
 
-      // Draw connection line
       const lineGeo = new THREE.BufferGeometry().setFromPoints([p1Offset, p2Offset]);
-      const isConnectionHighlighted = selectedNodes.size === 0 || selectedNodes.has(conn.source) || selectedNodes.has(conn.target);
-      const line = new THREE.Line(lineGeo, isConnectionHighlighted ? activeLineMaterial : lineMaterial);
-      scene.add(line);
+      const isConnHighlighted = selectedNodes.size === 0 || selectedNodes.has(conn.source) || selectedNodes.has(conn.target);
+      const line = new THREE.Line(lineGeo, isConnHighlighted ? activeLineMaterial : lineMaterial);
+      constellationGroup.add(line);
 
-      // Floating flow animation particle
-      const flowColor = conn.flowDirection === 'inflow' ? '#22c55e' : '#f43f5e';
+      const flowColor = conn.flowDirection === 'inflow' ? '#10b981' : '#f43f5e';
       const particleMat = new THREE.MeshBasicMaterial({
         color: flowColor,
         transparent: true,
-        opacity: isConnectionHighlighted ? 0.9 : 0.25
+        opacity: isConnHighlighted ? 0.9 : 0.2
       });
       const particle = new THREE.Mesh(particleGeo, particleMat);
       particle.position.copy(p1Offset);
-      scene.add(particle);
+      constellationGroup.add(particle);
 
       connectionRefs.push({
         line,
         particle,
-        speed: 0.003 * animationSettings.particleSpeed * (Math.random() * 0.5 + 0.75),
-        progress: Math.random(), // random start offset for fluid continuous flow visual
+        speed: 0.002 * animationSettings.particleSpeed * (Math.random() * 0.4 + 0.8),
+        progress: Math.random(),
         start: p1Offset,
         end: p2Offset
       });
     });
 
-    // Raycasting for Mouse Interaction
+    // Starfield galaxy environment inside VR
+    const starsGeo = new THREE.BufferGeometry();
+    const starsCount = 600;
+    const starPositions = new Float32Array(starsCount * 3);
+
+    for (let i = 0; i < starsCount * 3; i += 3) {
+      // Position stars in a giant outer sphere
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(Math.random() * 2 - 1);
+      const dist = 35 + Math.random() * 15;
+
+      starPositions[i] = dist * Math.sin(phi) * Math.cos(theta);
+      starPositions[i + 1] = 1.6 + dist * Math.cos(phi);
+      starPositions[i + 2] = dist * Math.sin(phi) * Math.sin(theta);
+    }
+
+    starsGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+    const starMat = new THREE.PointsMaterial({
+      color: '#ffffff',
+      size: 0.12,
+      transparent: true,
+      opacity: 0.65
+    });
+    const starField = new THREE.Points(starsGeo, starMat);
+    constellationGroup.add(starField);
+
+    // Mouse Raycasting (Flat screens)
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
-    let hoveredNodeGroup: THREE.Group | null = null;
-    const baseHoveredScale = new THREE.Vector3(1, 1, 1);
+    let hoveredGroup: THREE.Group | null = null;
+    const baseScale = new THREE.Vector3(1, 1, 1);
 
     const getRaycastIntersect = (clientX: number, clientY: number) => {
       const rect = renderer.domElement.getBoundingClientRect();
@@ -410,35 +437,29 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
       mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
 
       raycaster.setFromCamera(mouse, camera);
-
-      // Find children of our node meshes (the sphere mesh)
-      const targets = nodeMeshes.map(group => group.children[0]);
+      const targets = nodeMeshes.map(g => g.children[0]);
       const intersects = raycaster.intersectObjects(targets);
 
       if (intersects.length > 0) {
-        // Return parent Group representing the Node
         return intersects[0].object.parent as THREE.Group;
       }
       return null;
     };
 
     const handlePointerMove = (e: PointerEvent) => {
-      const intersectedGroup = getRaycastIntersect(e.clientX, e.clientY);
+      // Do not process raycasting during active VR headset presentation
+      if (renderer.xr.isPresenting) return;
 
-      if (intersectedGroup) {
-        if (hoveredNodeGroup !== intersectedGroup) {
-          // Reset previous hovered state
-          if (hoveredNodeGroup) {
-            hoveredNodeGroup.children[0].scale.copy(baseHoveredScale);
-          }
+      const intersected = getRaycastIntersect(e.clientX, e.clientY);
+      if (intersected) {
+        if (hoveredGroup !== intersected) {
+          if (hoveredGroup) hoveredGroup.children[0].scale.copy(baseScale);
+          hoveredGroup = intersected;
+          const mesh = hoveredGroup.children[0];
+          baseScale.copy(mesh.scale);
+          mesh.scale.multiplyScalar(1.25);
 
-          hoveredNodeGroup = intersectedGroup;
-          const sphereMesh = hoveredNodeGroup.children[0];
-          baseHoveredScale.copy(sphereMesh.scale);
-          sphereMesh.scale.multiplyScalar(1.25); // increase hover scale
-
-          // Show Tooltip
-          const nodeData = hoveredNodeGroup.userData.nodeData as NodeType;
+          const nodeData = hoveredGroup.userData.nodeData as NodeType;
           setTooltip({
             node: nodeData,
             x: e.clientX,
@@ -447,17 +468,12 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
           });
           document.body.style.cursor = 'pointer';
         } else {
-          // Keep tooltip following the cursor
-          setTooltip(prev => ({
-            ...prev,
-            x: e.clientX,
-            y: e.clientY - 15
-          }));
+          setTooltip(prev => ({ ...prev, x: e.clientX, y: e.clientY - 15 }));
         }
       } else {
-        if (hoveredNodeGroup) {
-          hoveredNodeGroup.children[0].scale.copy(baseHoveredScale);
-          hoveredNodeGroup = null;
+        if (hoveredGroup) {
+          hoveredGroup.children[0].scale.copy(baseScale);
+          hoveredGroup = null;
           setTooltip(prev => ({ ...prev, visible: false }));
           document.body.style.cursor = 'default';
         }
@@ -465,11 +481,11 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
     };
 
     const handlePointerDown = (e: PointerEvent) => {
-      const clickedGroup = getRaycastIntersect(e.clientX, e.clientY);
-      if (clickedGroup) {
-        const nodeData = clickedGroup.userData.nodeData as NodeType;
+      if (renderer.xr.isPresenting) return;
 
-        // Trigger click selection/cascade
+      const clicked = getRaycastIntersect(e.clientX, e.clientY);
+      if (clicked) {
+        const nodeData = clicked.userData.nodeData as NodeType;
         if (nodeData.isHub) {
           toggleComparison(nodeData.id);
         } else {
@@ -481,42 +497,42 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
     window.addEventListener('pointermove', handlePointerMove);
     window.addEventListener('pointerdown', handlePointerDown);
 
-    // Grid Helper
-    const gridHelper = new THREE.GridHelper(80, 40, '#1e293b', '#0f172a');
-    gridHelper.position.y = -18;
-    scene.add(gridHelper);
+    // Grid plane
+    const grid = new THREE.GridHelper(60, 30, '#111827', '#030712');
+    grid.position.y = -2;
+    scene.add(grid);
 
-    // Animation Loop
-    let animationFrameId: number;
+    // VR/3D Animation Loop using WebXR setAnimationLoop
     const clock = new THREE.Clock();
 
-    const animate = () => {
-      animationFrameId = requestAnimationFrame(animate);
-
-      // Orbit control updates
+    const vrLoop = () => {
+      // controls update for flat screen view
       controls.update();
 
       const time = clock.getElapsedTime();
 
-      // Node breathing animation and subtle floating
+      // Majestic auto-rotation of constellation around player
+      const rotationSpeed = 0.035;
+      constellationGroup.rotation.y = time * rotationSpeed;
+
+      // Floating animations inside constellation
       nodeMeshes.forEach(group => {
         const node = group.userData.nodeData as NodeType;
-        const sphereMesh = group.children[0] as THREE.Mesh;
-        const sphereMat = sphereMesh.material as THREE.MeshStandardMaterial;
+        const mesh = group.children[0] as THREE.Mesh;
+        const mat = mesh.material as THREE.MeshStandardMaterial;
 
-        // Subtle floating movement
-        const floatOffset = Math.sin(time * 0.8 + node.size) * 0.05;
-        group.position.y = node.y3d + floatOffset;
+        // float offset Y
+        const offset = Math.sin(time * 0.7 + node.size) * 0.03;
+        group.position.y = node.y3d + offset;
 
-        // Breathing animation in emissive intensity
         if (animationSettings.enabled) {
-          const breathe = Math.sin(time * 1.5 + node.size) * 0.5 + 0.5; // 0 to 1
-          sphereMat.emissiveIntensity = (selectedNodes.has(node.id) ? 1.0 : (node.isHub ? 0.3 : 0.15)) +
-            breathe * 0.12 * animationSettings.breathingIntensity;
+          const breathe = Math.sin(time * 1.4 + node.size) * 0.5 + 0.5;
+          mat.emissiveIntensity = (selectedNodes.has(node.id) ? 0.9 : (node.isHub ? 0.35 : 0.15)) +
+            breathe * 0.1 * animationSettings.breathingIntensity;
         }
       });
 
-      // Update moving particles
+      // Flow guides animation
       if (animationSettings.enabled) {
         connectionRefs.forEach(ref => {
           ref.progress += ref.speed;
@@ -528,9 +544,9 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
       renderer.render(scene, camera);
     };
 
-    animate();
+    renderer.setAnimationLoop(vrLoop);
 
-    // Handle Resize
+    // Handle resized window
     const handleResize = () => {
       if (!container || !canvas) return;
       const w = container.clientWidth;
@@ -545,7 +561,7 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
 
     // Clean up
     return () => {
-      cancelAnimationFrame(animationFrameId);
+      renderer.setAnimationLoop(null);
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerdown', handlePointerDown);
       resizeObserver.disconnect();
@@ -553,8 +569,13 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
       renderer.dispose();
       scene.clear();
       document.body.style.cursor = 'default';
+
+      // Clean up VR Button elements safely
+      if (vrButton && vrButton.parentNode) {
+        vrButton.parentNode.removeChild(vrButton);
+      }
     };
-  }, [filteredNodes3D, filteredNodes3DMap, connections, selectedNodes, animationSettings, toggleComparison]);
+  }, [filteredNodesVR, filteredNodesVRMap, connections, selectedNodes, animationSettings, toggleComparison]);
 
   if (loading && nodes.length === 0) {
     return <LoadingSpinner />;
@@ -573,7 +594,7 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
         onOpenSettings={() => setIsSettingsOpen(true)}
         selectedCount={selectedNodes.size}
         onClearSelection={clearSelection}
-        viewMode={viewMode}
+        viewMode="vr"
         onViewModeSwitch={onViewModeSwitch}
       />
 
@@ -592,14 +613,14 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
           </div>
         )}
 
-        {/* 3D Instructions Overlay */}
+        {/* VR Instructions Overlay */}
         <div className="absolute top-4 left-4 z-10 bg-gray-900 bg-opacity-80 backdrop-blur-sm border border-gray-800 rounded-lg p-2.5 max-w-[200px] pointer-events-none">
-          <p className="text-white text-[11px] font-semibold mb-1">3D CONTROLS</p>
+          <p className="text-white text-[11px] font-semibold mb-1">VR SPACE MODE</p>
           <div className="space-y-1 text-gray-400 text-[10px] font-medium">
-            <p>• Rotate: Left-click + Drag</p>
-            <p>• Zoom: Scroll wheel</p>
-            <p>• Pan: Right-click + Drag</p>
-            <p>• Click nodes to view history chart</p>
+            <p className="text-indigo-400 font-bold">• Enter VR button is located at the bottom center</p>
+            <p>• Headset wraps constellation around your coordinates</p>
+            <p>• Majestic slow auto-rotation enabled for relaxed viewing</p>
+            <p>• Supports flat drag-to-look fallback</p>
           </div>
         </div>
 

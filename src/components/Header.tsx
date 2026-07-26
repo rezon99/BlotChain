@@ -9,8 +9,8 @@ interface HeaderProps {
   onOpenSettings: () => void;
   selectedCount: number;
   onClearSelection: () => void;
-  viewMode?: '2d' | '3d';
-  onViewModeSwitch?: (viewMode: '2d' | '3d') => void;
+  viewMode?: '2d' | '3d' | 'vr';
+  onViewModeSwitch?: (viewMode: '2d' | '3d' | 'vr') => void;
 }
 
 export const Header: React.FC<HeaderProps> = React.memo(({
@@ -61,7 +61,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
             </button>
           </div>
 
-          {/* View Mode (2D / 3D) Switcher */}
+          {/* View Mode (2D / 3D / VR) Switcher */}
           {onViewModeSwitch && (
             <div className="flex bg-slate-800/80 p-1 rounded-xl border border-slate-700 backdrop-blur-md overflow-x-auto gap-1">
               <button
@@ -81,6 +81,15 @@ export const Header: React.FC<HeaderProps> = React.memo(({
               >
                 <span className="text-[10px] bg-slate-900/60 text-indigo-300 px-1 py-0.5 rounded">3D</span>
                 SPACE
+              </button>
+              <button
+                onClick={() => onViewModeSwitch('vr')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-4 rounded-lg text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
+                  viewMode === 'vr' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                <span className="text-[10px] bg-slate-900/60 text-indigo-300 px-1 py-0.5 rounded">VR</span>
+                VR SPACE
               </button>
             </div>
           )}
