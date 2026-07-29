@@ -18,8 +18,8 @@ import { adaptNodesToViewport, getResponsiveViewport } from '../utils/dataTransf
 interface DashboardProps {
   mode?: DashboardMode;
   onModeSwitch?: (mode: DashboardMode) => void;
-  viewMode?: '2d' | '3d';
-  onViewModeSwitch?: (viewMode: '2d' | '3d') => void;
+  viewMode?: '2d' | '3d' | 'vr';
+  onViewModeSwitch?: (viewMode: '2d' | '3d' | 'vr') => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
