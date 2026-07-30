@@ -1,11 +1,11 @@
 import React from 'react';
-import { LayoutGrid, Coins, Image as ImageIcon, Settings as SettingsIcon } from 'lucide-react';
+import { LayoutGrid, Settings as SettingsIcon } from 'lucide-react';
 import { DashboardMode } from '../types';
 
 interface HeaderProps {
   lastUpdate: Date;
-  mode: DashboardMode;
-  onModeSwitch: (mode: DashboardMode) => void;
+  mode?: DashboardMode;
+  onModeSwitch?: (mode: DashboardMode) => void;
   onOpenSettings: () => void;
   selectedCount: number;
   onClearSelection: () => void;
@@ -15,8 +15,6 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = React.memo(({
   lastUpdate,
-  mode,
-  onModeSwitch,
   onOpenSettings,
   selectedCount,
   onClearSelection,
@@ -39,28 +37,6 @@ export const Header: React.FC<HeaderProps> = React.memo(({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full lg:w-auto">
-          {/* Dashboard Mode Switcher */}
-          <div className="flex bg-slate-800/80 p-1 rounded-xl border border-slate-700 backdrop-blur-md overflow-x-auto gap-1">
-            <button
-              onClick={() => onModeSwitch('crypto')}
-              className={`flex items-center gap-2 px-3 py-1.5 sm:px-4 rounded-lg text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
-                mode === 'crypto' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-gray-200'
-              }`}
-            >
-              <Coins size={16} />
-              CRYPTOCURRENCY
-            </button>
-            <button
-              onClick={() => onModeSwitch('nft')}
-              className={`flex items-center gap-2 px-3 py-1.5 sm:px-4 rounded-lg text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
-                mode === 'nft' ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-400 hover:text-gray-200'
-              }`}
-            >
-              <ImageIcon size={16} />
-              NFT COLLECTIONS
-            </button>
-          </div>
-
           {/* View Mode (2D / 3D / VR) Switcher */}
           {onViewModeSwitch && (
             <div className="flex bg-slate-800/80 p-1 rounded-xl border border-slate-700 backdrop-blur-md overflow-x-auto gap-1">
