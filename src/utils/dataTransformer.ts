@@ -150,6 +150,16 @@ export function transformCoinDataToNodes(
   });
 }
 
+function getDeterministicFloat(str1: string, str2: string = ''): number {
+  const combined = str1 + '|' + str2;
+  let hash = 5381;
+  for (let i = 0; i < combined.length; i++) {
+    hash = (hash * 33) ^ combined.charCodeAt(i);
+  }
+  const unsignedHash = (hash >>> 0);
+  return (unsignedHash % 100000) / 100000;
+}
+
 export function generateConnectionsFromRealData(nodes: Node[]): Connection[] {
   const connections: Connection[] = [];
   
@@ -161,38 +171,57 @@ export function generateConnectionsFromRealData(nodes: Node[]): Connection[] {
   // Connect centralized exchanges to Top 10 coins
   cexs.forEach(cex => {
     top10.slice(0, 3).forEach(coin => {
-      if (Math.random() > 0.3) { // 70% chance of connection
+      // Deterministic 70% chance of connection
+      if (getDeterministicFloat(cex.id, coin.id) > 0.3) {
         connections.push(createConnection(cex, coin));
       }
     });
   });
   
-  // Connect AMMs/Protocols to Top 10 coins
+  // Connect AMMs/Protocols to Top 10 coins deterministically
   amms.forEach(amm => {
-    const randomTop10 = top10[Math.floor(Math.random() * top10.length)];
-    if (randomTop10) {
-      connections.push(createConnection(amm, randomTop10));
+    if (top10.length > 0) {
+      const idx = Math.floor(getDeterministicFloat(amm.id) * top10.length);
+      const chosenTop10 = top10[idx];
+      if (chosenTop10) {
+        connections.push(createConnection(amm, chosenTop10));
+      }
     }
   });
   
-  // Add some random connections for network effect
-  for (let i = 0; i < Math.min(10, nodes.length); i++) {
-    const source = nodes[Math.floor(Math.random() * nodes.length)];
-    const target = nodes[Math.floor(Math.random() * nodes.length)];
-    
-    if (source.id !== target.id && !connections.find(c => 
-      (c.source === source.id && c.target === target.id) ||
-      (c.source === target.id && c.target === source.id)
-    )) {
-      connections.push(createConnection(source, target));
+  // Add deterministic connections for network effect across categories
+  const extraConnections: Connection[] = [];
+  for (let i = 0; i < nodes.length; i++) {
+    for (let j = i + 1; j < nodes.length; j++) {
+      const source = nodes[i];
+      const target = nodes[j];
+
+      // Ensure cross-category flows for diverse ecosystem mapping
+      if (source.category === target.category) continue;
+
+      const hashVal = getDeterministicFloat(source.id, target.id);
+      if (hashVal > 0.88) { // select top ~12% deterministic node pairs
+        const exists = connections.some(c =>
+          (c.source === source.id && c.target === target.id) ||
+          (c.source === target.id && c.target === source.id)
+        );
+        if (!exists) {
+          extraConnections.push(createConnection(source, target));
+        }
+      }
     }
   }
   
+  // Sort extra connections deterministically and add top 12 to maintain perfect density
+  extraConnections.sort((a, b) => b.flow - a.flow);
+  connections.push(...extraConnections.slice(0, 12));
+
   return connections;
 }
 
 function createConnection(source: Node, target: Node): Connection {
-  const flow = Math.min(source.liquidity, target.liquidity) * (0.1 + Math.random() * 0.3);
+  const hashFactor = getDeterministicFloat(source.id, target.id);
+  const flow = Math.min(source.liquidity, target.liquidity) * (0.1 + hashFactor * 0.3);
   
   return {
     id: `${source.id}-${target.id}`,
