@@ -345,10 +345,17 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
       progress: number;
       start: THREE.Vector3;
       end: THREE.Vector3;
+      isStrongOrSelected: boolean;
+      sourceId: string;
+      targetId: string;
     }
 
     const connectionRefs: ConnectionRef[] = [];
     const particleGeo = new THREE.SphereGeometry(0.12, 16, 16);
+
+    // Calculate flow threshold for the top 35 strongest connections to implement connection LOD
+    const sortedFlows = [...connections].map(c => c.flow).sort((a, b) => b - a);
+    const flowThreshold = sortedFlows.length > 35 ? sortedFlows[34] : 0;
 
     connections.forEach(conn => {
       const srcNode = filteredNodes3DMap.get(conn.source);
@@ -378,7 +385,7 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
       scene.add(line);
 
       // Floating flow animation particle
-      const flowColor = conn.flowDirection === 'inflow' ? '#22c55e' : '#f43f5e';
+      const flowColor = conn.direction === 'in' ? '#22c55e' : '#f43f5e';
       const particleMat = new THREE.MeshBasicMaterial({
         color: flowColor,
         transparent: true,
@@ -388,13 +395,19 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
       particle.position.copy(p1Offset);
       scene.add(particle);
 
+      const isLinkedToSelected = selectedNodes.size > 0 && (selectedNodes.has(conn.source) || selectedNodes.has(conn.target));
+      const isStrong = conn.flow >= flowThreshold;
+
       connectionRefs.push({
         line,
         particle,
         speed: 0.003 * animationSettings.particleSpeed * (Math.random() * 0.5 + 0.75),
         progress: Math.random(), // random start offset for fluid continuous flow visual
         start: p1Offset,
-        end: p2Offset
+        end: p2Offset,
+        isStrongOrSelected: isLinkedToSelected || isStrong,
+        sourceId: conn.source,
+        targetId: conn.target
       });
     });
 
@@ -508,20 +521,43 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
         const floatOffset = Math.sin(time * 0.8 + node.size) * 0.05;
         group.position.y = node.y3d + floatOffset;
 
-        // Breathing animation in emissive intensity
+        // Distance LOD: Cull label visibility if camera is far
+        const distToCam = group.position.distanceTo(camera.position);
+        const isFar = distToCam > 40;
+        const sprite = group.children[1] as THREE.Sprite | undefined;
+        if (sprite) {
+          sprite.visible = !isFar;
+        }
+
+        // Breathing animation and emissive intensity with LOD capping
+        const baseEmissive = selectedNodes.has(node.id) ? 1.0 : (node.isHub ? 0.3 : 0.15);
+        const emissiveDimFactor = isFar ? 0.35 : 1.0;
+
         if (animationSettings.enabled) {
           const breathe = Math.sin(time * 1.5 + node.size) * 0.5 + 0.5; // 0 to 1
-          sphereMat.emissiveIntensity = (selectedNodes.has(node.id) ? 1.0 : (node.isHub ? 0.3 : 0.15)) +
-            breathe * 0.12 * animationSettings.breathingIntensity;
+          sphereMat.emissiveIntensity = (baseEmissive +
+            breathe * 0.12 * animationSettings.breathingIntensity) * emissiveDimFactor;
+        } else {
+          sphereMat.emissiveIntensity = baseEmissive * emissiveDimFactor;
         }
       });
 
-      // Update moving particles
+      // Update moving particles with connection density culling (LOD)
       if (animationSettings.enabled) {
+        const totalConns = connectionRefs.length;
         connectionRefs.forEach(ref => {
-          ref.progress += ref.speed;
-          if (ref.progress > 1) ref.progress = 0;
-          ref.particle.position.lerpVectors(ref.start, ref.end, ref.progress);
+          const isLinkedToSelected = selectedNodes.size > 0 && (selectedNodes.has(ref.sourceId) || selectedNodes.has(ref.targetId));
+          // If total connection count > 50, restrict rendering to top 35 strongest connections or selected ones to save cycles
+          const shouldAnimate = totalConns <= 50 || ref.isStrongOrSelected || isLinkedToSelected;
+
+          if (shouldAnimate) {
+            ref.particle.visible = true;
+            ref.progress += ref.speed;
+            if (ref.progress > 1) ref.progress = 0;
+            ref.particle.position.lerpVectors(ref.start, ref.end, ref.progress);
+          } else {
+            ref.particle.visible = false;
+          }
         });
       }
 
