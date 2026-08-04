@@ -15,6 +15,8 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = React.memo(({
   lastUpdate,
+  mode = 'crypto',
+  onModeSwitch,
   onOpenSettings,
   selectedCount,
   onClearSelection,
@@ -36,7 +38,29 @@ export const Header: React.FC<HeaderProps> = React.memo(({
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full lg:w-auto">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-4 w-full lg:w-auto">
+          {/* Asset Mode (Crypto / NFT) Switcher */}
+          {onModeSwitch && (
+            <div className="flex bg-slate-800/80 p-1 rounded-xl border border-slate-700 backdrop-blur-md overflow-x-auto gap-1">
+              <button
+                onClick={() => onModeSwitch('crypto')}
+                className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
+                  mode === 'crypto' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                CRYPTO
+              </button>
+              <button
+                onClick={() => onModeSwitch('nft')}
+                className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
+                  mode === 'nft' ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                NFT
+              </button>
+            </div>
+          )}
+
           {/* View Mode (2D / 3D / VR) Switcher */}
           {onViewModeSwitch && (
             <div className="flex bg-slate-800/80 p-1 rounded-xl border border-slate-700 backdrop-blur-md overflow-x-auto gap-1">
