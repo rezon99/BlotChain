@@ -8,7 +8,11 @@ import {
   generateNFTConnections
 } from '../utils/dataTransformer';
 
-export function useRealTimeData(mode: DashboardMode = 'crypto', refreshInterval: number = 30000) {
+export function useRealTimeData(
+  mode: DashboardMode = 'crypto',
+  refreshInterval: number = 30000,
+  limit: number = 15
+) {
   const [nodes, setNodes] = useState<Node[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,14 +32,14 @@ export function useRealTimeData(mode: DashboardMode = 'crypto', refreshInterval:
 
       if (mode === 'crypto') {
         const [coinsData, exchangesData] = await Promise.all([
-          coinGeckoApi.getTopCoins(15),
-          coinGeckoApi.getExchanges(5)
+          coinGeckoApi.getTopCoins(limit),
+          coinGeckoApi.getExchanges(Math.max(5, Math.floor(limit / 3)))
         ]);
         if (fetchId !== activeFetchId.current) return;
         newNodes = transformCoinDataToNodes(coinsData, exchangesData);
         newConnections = generateConnectionsFromRealData(newNodes);
       } else {
-        const nftData = await coinGeckoApi.getNFTMarkets(20);
+        const nftData = await coinGeckoApi.getNFTMarkets(limit);
         if (fetchId !== activeFetchId.current) return;
         newNodes = transformNFTDataToNodes(nftData);
         newConnections = generateNFTConnections(newNodes);
@@ -53,7 +57,7 @@ export function useRealTimeData(mode: DashboardMode = 'crypto', refreshInterval:
       setError(err instanceof Error ? err.message : 'Failed to fetch data');
       setLoading(false);
     }
-  }, [mode]);
+  }, [mode, limit]);
 
   // Initial data fetch
   useEffect(() => {
