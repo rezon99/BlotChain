@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Node as NodeType, TooltipData, AnimationSettings, DashboardMode } from '../types';
 import { Node } from './Node';
 import { Connection as ConnectionComponent } from './Connection';
@@ -37,10 +38,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return saved ? parseInt(saved, 10) : 30000;
   });
 
-  const { nodes, connections, loading, error, lastUpdate, refetch } = useRealTimeData(mode, refreshInterval);
+  const { nodes, connections, loading, error, lastUpdate, refetch } = useRealTimeData(mode, refreshInterval, 20);
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
   const [activeChartNode, setActiveChartNode] = useState<NodeType | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
+  const [isFilterCollapsed, setIsFilterCollapsed] = useState(false);
 
   const [manualPositions, setManualPositions] = useState<Record<string, { x: number, y: number }>>(() => {
     const saved = localStorage.getItem('blotchain_positions');
@@ -475,20 +477,33 @@ export const Dashboard: React.FC<DashboardProps> = ({
             className="bg-gray-900 bg-opacity-90 backdrop-blur-sm border border-gray-700 rounded-lg p-3 w-full"
           />
           {/* Category Filter positioned vertically below the Legend panel */}
-          <div className="flex items-center gap-1 sm:gap-2 bg-gray-900 bg-opacity-95 backdrop-blur-sm p-1.5 rounded-lg border border-gray-700 overflow-x-auto max-w-full">
-            {categories.map(cat => (
-              <button
-                key={cat}
-                onClick={() => setCategoryFilter(cat)}
-                className={`px-2.5 py-1 text-[10px] sm:text-xs rounded-md transition-all whitespace-nowrap font-medium ${
-                  categoryFilter === cat
-                    ? mode === 'crypto' ? 'bg-blue-600 text-white shadow-lg' : 'bg-purple-600 text-white shadow-lg'
-                    : 'text-gray-400 hover:text-gray-200 hover:bg-slate-800'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
+          <div className="flex flex-col bg-gray-900 bg-opacity-95 backdrop-blur-sm rounded-lg border border-gray-700 overflow-hidden max-w-full">
+            <div
+              className="flex items-center justify-between px-3 py-1.5 cursor-pointer hover:bg-slate-800/50 transition-colors select-none"
+              onClick={() => setIsFilterCollapsed(!isFilterCollapsed)}
+            >
+              <span className="text-white text-[10px] font-bold uppercase tracking-wider">Categories</span>
+              <span className="text-gray-400">
+                {isFilterCollapsed ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+              </span>
+            </div>
+            {!isFilterCollapsed && (
+              <div className="flex items-center gap-1 sm:gap-2 p-1.5 border-t border-gray-800 overflow-x-auto max-w-full">
+                {categories.map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setCategoryFilter(cat)}
+                    className={`px-2.5 py-1 text-[10px] sm:text-xs rounded-md transition-all whitespace-nowrap font-medium ${
+                      categoryFilter === cat
+                        ? mode === 'crypto' ? 'bg-blue-600 text-white shadow-lg' : 'bg-purple-600 text-white shadow-lg'
+                        : 'text-gray-400 hover:text-gray-200 hover:bg-slate-800'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

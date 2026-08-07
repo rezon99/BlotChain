@@ -170,7 +170,7 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
       } else {
         if (newSet.size >= 2) {
           const arr = Array.from(newSet);
-          return newSet([arr[1], nodeId]);
+          return new Set([arr[1], nodeId]);
         }
         newSet.add(nodeId);
       }
