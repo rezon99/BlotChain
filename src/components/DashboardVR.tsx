@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
+import { Compass, Sparkles, RefreshCw } from 'lucide-react';
 import { Node as NodeType, AnimationSettings, DashboardMode } from '../types';
 import { useRealTimeData } from '../hooks/useRealTimeData';
 import { Header } from './Header';
@@ -33,10 +34,17 @@ export const DashboardVR: React.FC<DashboardVRProps> = ({
     return saved ? parseInt(saved, 10) : 30000;
   });
 
-  const { nodes, connections, loading, error, lastUpdate, refetch } = useRealTimeData(mode, refreshInterval);
+  // Galaxy expanding API loading states
+  const [apiLimit, setApiLimit] = useState<number>(20);
+  const currentLimitRef = useRef<number>(20);
+
+  const { nodes, connections, loading, error, lastUpdate, refetch } = useRealTimeData(mode, refreshInterval, apiLimit);
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
   const [activeChartNode, setActiveChartNode] = useState<NodeType | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
+
+  // Parallax interaction states
+  const [parallaxEnabled, setParallaxEnabled] = useState<boolean>(false);
 
   const [animationSettings, setAnimationSettings] = useState<AnimationSettings>(() => {
     const saved = localStorage.getItem('blotchain_animation_settings');
@@ -153,6 +161,13 @@ export const DashboardVR: React.FC<DashboardVRProps> = ({
       }
       return newSet;
     });
+  }, []);
+
+  // VR interactive tools trigger
+  const resetCamera = useCallback(() => {
+    // Reset limit and focus
+    currentLimitRef.current = 20;
+    setApiLimit(20);
   }, []);
 
   useEffect(() => {
@@ -358,7 +373,7 @@ export const DashboardVR: React.FC<DashboardVRProps> = ({
     const connectionRefs: ConnectionRef[] = [];
     const particleGeo = new THREE.SphereGeometry(0.08, 12, 12);
 
-    // Calculate flow threshold for the top 35 strongest connections to implement connection LOD
+    // Calculate flow threshold for connection LOD
     const sortedFlows = [...connections].map(c => c.flow).sort((a, b) => b - a);
     const flowThreshold = sortedFlows.length > 35 ? sortedFlows[34] : 0;
 
@@ -373,8 +388,8 @@ export const DashboardVR: React.FC<DashboardVRProps> = ({
       const vector = new THREE.Vector3().subVectors(p2, p1);
       const length = vector.length();
 
-      const r1 = getNodeRadius(src.size) * 1.20; // 20% protective offset
-      const r2 = getNodeRadius(tgt.size) * 1.20; // 20% protective offset
+      const r1 = getNodeRadius(src.size) * 1.20;
+      const r2 = getNodeRadius(tgt.size) * 1.20;
 
       if (length <= r1 + r2) return;
 
@@ -418,7 +433,6 @@ export const DashboardVR: React.FC<DashboardVRProps> = ({
     const starPositions = new Float32Array(starsCount * 3);
 
     for (let i = 0; i < starsCount * 3; i += 3) {
-      // Position stars in a giant outer sphere
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.acos(Math.random() * 2 - 1);
       const dist = 35 + Math.random() * 15;
@@ -460,7 +474,6 @@ export const DashboardVR: React.FC<DashboardVRProps> = ({
     };
 
     const handlePointerMove = (e: PointerEvent) => {
-      // Do not process raycasting during active VR headset presentation
       if (renderer.xr.isPresenting) return;
 
       const intersected = getRaycastIntersect(e.clientX, e.clientY);
@@ -519,7 +532,6 @@ export const DashboardVR: React.FC<DashboardVRProps> = ({
     const clock = new THREE.Clock();
 
     const vrLoop = () => {
-      // controls update for flat screen view
       controls.update();
 
       const time = clock.getElapsedTime();
@@ -528,13 +540,33 @@ export const DashboardVR: React.FC<DashboardVRProps> = ({
       const rotationSpeed = 0.035;
       constellationGroup.rotation.y = time * rotationSpeed;
 
+      // Parallax mouse-sway camera coordinate offset (Anatomy-inspired)
+      if (parallaxEnabled) {
+        const targetX = mouse.x * 3.5;
+        const targetY = 1.6 + mouse.y * 2.5;
+        camera.position.x = THREE.MathUtils.lerp(camera.position.x, targetX, 0.05);
+        camera.position.y = THREE.MathUtils.lerp(camera.position.y, targetY, 0.05);
+      }
+
+      // Dynamically load more tokens via API on camera movement/zoom-out (Expanding Galaxy)
+      const distFromCenter = camera.position.distanceTo(new THREE.Vector3(0, 1.6, 0));
+      if (distFromCenter > 14 && currentLimitRef.current < 45) {
+        currentLimitRef.current = 45;
+        setTimeout(() => setApiLimit(45), 0);
+      } else if (distFromCenter > 22 && currentLimitRef.current < 70) {
+        currentLimitRef.current = 70;
+        setTimeout(() => setApiLimit(70), 0);
+      } else if (distFromCenter > 32 && currentLimitRef.current < 90) {
+        currentLimitRef.current = 90;
+        setTimeout(() => setApiLimit(90), 0);
+      }
+
       // Floating animations inside constellation
       nodeMeshes.forEach(group => {
         const node = group.userData.nodeData as NodeType;
         const mesh = group.children[0] as THREE.Mesh;
         const mat = mesh.material as THREE.MeshStandardMaterial;
 
-        // float offset Y
         const offset = Math.sin(time * 0.7 + node.size) * 0.03;
         group.position.y = node.y3d + offset;
 
@@ -549,7 +581,6 @@ export const DashboardVR: React.FC<DashboardVRProps> = ({
           sprite.visible = !isFar;
         }
 
-        // Breathing animation and emissive intensity with LOD capping
         const baseEmissive = selectedNodes.has(node.id) ? 0.9 : (node.isHub ? 0.35 : 0.15);
         const emissiveDimFactor = isFar ? 0.35 : 1.0;
 
@@ -567,7 +598,6 @@ export const DashboardVR: React.FC<DashboardVRProps> = ({
         const totalConns = connectionRefs.length;
         connectionRefs.forEach(ref => {
           const isLinkedToSelected = selectedNodes.size > 0 && (selectedNodes.has(ref.sourceId) || selectedNodes.has(ref.targetId));
-          // If total connection count > 50, restrict rendering to top 35 strongest connections or selected ones to save cycles
           const shouldAnimate = totalConns <= 50 || ref.isStrongOrSelected || isLinkedToSelected;
 
           if (shouldAnimate) {
@@ -610,12 +640,11 @@ export const DashboardVR: React.FC<DashboardVRProps> = ({
       scene.clear();
       document.body.style.cursor = 'default';
 
-      // Clean up VR Button elements safely
       if (vrButton && vrButton.parentNode) {
         vrButton.parentNode.removeChild(vrButton);
       }
     };
-  }, [filteredNodesVR, filteredNodesVRMap, connections, selectedNodes, animationSettings, toggleComparison]);
+  }, [filteredNodesVR, filteredNodesVRMap, connections, selectedNodes, animationSettings, toggleComparison, parallaxEnabled]);
 
   if (loading && nodes.length === 0) {
     return <LoadingSpinner />;
@@ -653,14 +682,50 @@ export const DashboardVR: React.FC<DashboardVRProps> = ({
           </div>
         )}
 
-        {/* VR Instructions Overlay */}
-        <div className="absolute top-4 left-4 z-10 bg-gray-900 bg-opacity-80 backdrop-blur-sm border border-gray-800 rounded-lg p-2.5 max-w-[200px] pointer-events-none">
-          <p className="text-white text-[11px] font-semibold mb-1">VR SPACE MODE</p>
-          <div className="space-y-1 text-gray-400 text-[10px] font-medium">
-            <p className="text-indigo-400 font-bold">• Enter VR button is located at the bottom center</p>
-            <p>• Headset wraps constellation around your coordinates</p>
-            <p>• Majestic slow auto-rotation enabled for relaxed viewing</p>
-            <p>• Supports flat drag-to-look fallback</p>
+        {/* Dynamic loading galaxy expansion status alert */}
+        {loading && apiLimit > 20 && (
+          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 bg-indigo-950/95 border border-indigo-500 text-indigo-200 px-6 py-3.5 rounded-xl text-xs font-bold animate-pulse z-30 flex items-center gap-3 shadow-2xl">
+            <Sparkles className="animate-spin text-indigo-400" size={16} />
+            <span>GALAXY EXPANDING: DYNAMICALLY LOADING LOWER LIQUIDITY TOKENS VIA API...</span>
+          </div>
+        )}
+
+        {/* VR Instructions Overlay with Parallax toggles */}
+        <div className="absolute top-4 left-4 z-10 flex flex-col gap-2">
+          <div className="bg-gray-900 bg-opacity-80 backdrop-blur-sm border border-gray-800 rounded-lg p-2.5 max-w-[200px] pointer-events-none">
+            <p className="text-white text-[11px] font-semibold mb-1">VR SPACE MODE</p>
+            <div className="space-y-1 text-gray-400 text-[10px] font-medium">
+              <p className="text-indigo-400 font-bold">• Enter VR button is located at the bottom center</p>
+              <p>• Galaxy dynamically streams API data as you pan/zoom</p>
+              <p>• Toggle Parallax button to unlock immersive depth sway</p>
+            </div>
+          </div>
+
+          {/* Quick Action Buttons for VR space */}
+          <div className="flex gap-1.5 bg-slate-900 bg-opacity-90 backdrop-blur-md border border-slate-800 rounded-xl p-1.5 shadow-xl">
+            {/* Parallax Toggle */}
+            <button
+              onClick={() => setParallaxEnabled(!parallaxEnabled)}
+              title={parallaxEnabled ? "Disable Parallax camera sway" : "Enable Perspective Parallax depth sway"}
+              className={`p-2 rounded-lg transition-all flex items-center gap-1.5 text-xs font-medium ${
+                parallaxEnabled
+                  ? 'bg-indigo-600 text-white shadow-lg'
+                  : 'text-gray-400 hover:text-gray-200 hover:bg-slate-800'
+              }`}
+            >
+              <Compass size={15} />
+              <span>Parallax</span>
+            </button>
+
+            {/* Reset Layout/Limit */}
+            <button
+              onClick={resetCamera}
+              title="Reset dynamic galaxy size"
+              className="p-2 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-slate-800 transition-all flex items-center gap-1.5 text-xs font-medium"
+            >
+              <RefreshCw size={15} />
+              <span>Reset</span>
+            </button>
           </div>
         </div>
 
