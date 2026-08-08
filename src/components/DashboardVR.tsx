@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
 import { Compass, Sparkles, RefreshCw } from 'lucide-react';
-import { Node as NodeType, AnimationSettings, DashboardMode } from '../types';
+import { Node as NodeType, AnimationSettings } from '../types';
 import { useRealTimeData } from '../hooks/useRealTimeData';
 import { Header } from './Header';
 import { Legend } from './Legend';
@@ -15,15 +15,18 @@ import { ComparisonPanel } from './ComparisonPanel';
 import { LoadingSpinner } from './LoadingSpinner';
 import { ErrorDisplay } from './ErrorDisplay';
 
+interface Node3D extends NodeType {
+  x3d: number;
+  y3d: number;
+  z3d: number;
+  opacity3d: number;
+}
+
 interface DashboardVRProps {
-  mode: DashboardMode;
-  onModeSwitch: (mode: DashboardMode) => void;
   onViewModeSwitch: (viewMode: '2d' | '3d' | 'vr') => void;
 }
 
 export const DashboardVR: React.FC<DashboardVRProps> = ({
-  mode,
-  onModeSwitch,
   onViewModeSwitch
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -38,7 +41,7 @@ export const DashboardVR: React.FC<DashboardVRProps> = ({
   const [apiLimit, setApiLimit] = useState<number>(20);
   const currentLimitRef = useRef<number>(20);
 
-  const { nodes, connections, loading, error, lastUpdate, refetch } = useRealTimeData(mode, refreshInterval, apiLimit);
+  const { nodes, connections, loading, error, lastUpdate, refetch } = useRealTimeData(refreshInterval, apiLimit);
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
   const [activeChartNode, setActiveChartNode] = useState<NodeType | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
@@ -563,7 +566,7 @@ export const DashboardVR: React.FC<DashboardVRProps> = ({
 
       // Floating animations inside constellation
       nodeMeshes.forEach(group => {
-        const node = group.userData.nodeData as NodeType;
+        const node = group.userData.nodeData as Node3D;
         const mesh = group.children[0] as THREE.Mesh;
         const mat = mesh.material as THREE.MeshStandardMaterial;
 
@@ -658,8 +661,6 @@ export const DashboardVR: React.FC<DashboardVRProps> = ({
     <div className="h-screen h-[100dvh] bg-slate-950 overflow-hidden flex flex-col relative">
       <Header
         lastUpdate={lastUpdate}
-        mode={mode}
-        onModeSwitch={onModeSwitch}
         onOpenSettings={() => setIsSettingsOpen(true)}
         selectedCount={selectedNodes.size}
         onClearSelection={clearSelection}
@@ -733,13 +734,11 @@ export const DashboardVR: React.FC<DashboardVRProps> = ({
         <LiveStatus
           nodeCount={nodes.length}
           connectionCount={connections.length}
-          mode={mode}
           className="absolute top-4 right-4 z-10"
         />
 
         <div className="absolute bottom-4 left-4 z-10 flex flex-col gap-2 max-w-[calc(100%-32px)]">
           <Legend
-            mode={mode}
             className="bg-gray-900 bg-opacity-90 backdrop-blur-sm border border-gray-700 rounded-lg p-3 w-full"
           />
           {/* Category Filter positioned vertically below the Legend panel */}
@@ -750,7 +749,7 @@ export const DashboardVR: React.FC<DashboardVRProps> = ({
                 onClick={() => setCategoryFilter(cat)}
                 className={`px-2.5 py-1 text-[10px] sm:text-xs rounded-md transition-all whitespace-nowrap font-medium ${
                   categoryFilter === cat
-                    ? mode === 'crypto' ? 'bg-blue-600 text-white shadow-lg' : 'bg-purple-600 text-white shadow-lg'
+                    ? 'bg-blue-600 text-white shadow-lg'
                     : 'text-gray-400 hover:text-gray-200 hover:bg-slate-800'
                 }`}
               >
