@@ -26,6 +26,7 @@ export function generateMockNodes(): Node[] {
       id: project.name.toLowerCase().replace(' ', '-'),
       name: project.name,
       category: project.category,
+      price: project.baseFlow / 10000000,
       liquidity,
       change24h,
       change7d,
