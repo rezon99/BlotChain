@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
-import { Node as NodeType, TooltipData, AnimationSettings, DashboardMode } from '../types';
+import { Node as NodeType, TooltipData, AnimationSettings } from '../types';
 import { Node } from './Node';
 import { Connection as ConnectionComponent } from './Connection';
 import { Tooltip } from './Tooltip';
@@ -17,28 +17,20 @@ import { useRealTimeData } from '../hooks/useRealTimeData';
 import { adaptNodesToViewport, getResponsiveViewport } from '../utils/dataTransformer';
 
 interface DashboardProps {
-  mode?: DashboardMode;
-  onModeSwitch?: (mode: DashboardMode) => void;
   viewMode?: '2d' | '3d' | 'vr';
   onViewModeSwitch?: (viewMode: '2d' | '3d' | 'vr') => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
-  mode: propMode,
-  onModeSwitch: propOnModeSwitch,
   viewMode = '2d',
   onViewModeSwitch
 }) => {
-  const [internalMode, setInternalMode] = useState<DashboardMode>('crypto');
-  const mode = propMode ?? internalMode;
-  const setMode = propOnModeSwitch ?? setInternalMode;
-
   const [refreshInterval, setRefreshInterval] = useState<number>(() => {
     const saved = localStorage.getItem('blotchain_refresh_interval');
     return saved ? parseInt(saved, 10) : 30000;
   });
 
-  const { nodes, connections, loading, error, lastUpdate, refetch } = useRealTimeData(mode, refreshInterval, 20);
+  const { nodes, connections, loading, error, lastUpdate, refetch } = useRealTimeData(refreshInterval, 20);
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
   const [activeChartNode, setActiveChartNode] = useState<NodeType | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
@@ -109,14 +101,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
     return () => observer.disconnect();
   }, []);
-
-  const handleModeSwitch = useCallback((newMode: DashboardMode) => {
-    if (newMode !== mode) {
-      setMode(newMode);
-      setSelectedNodes(new Set());
-      setCategoryFilter('All');
-    }
-  }, [mode, setMode]);
 
   const handleNodeSelect = useCallback((nodeId: string) => {
     const node = nodes.find(n => n.id === nodeId);
@@ -267,7 +251,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const exportToJson = useCallback(() => {
     const data = {
       timestamp: new Date().toISOString(),
-      mode,
       nodes,
       connections,
       manualPositions
@@ -277,12 +260,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `blotchain-export-${mode}-${new Date().getTime()}.json`;
+    a.download = `blotchain-export-crypto-${new Date().getTime()}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }, [mode, nodes, connections, manualPositions]);
+  }, [nodes, connections, manualPositions]);
 
   const exportToPng = useCallback(() => {
     const svg = svgRef.current;
@@ -312,13 +295,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
       const pngUrl = canvas.toDataURL('image/png');
       const a = document.createElement('a');
       a.href = pngUrl;
-      a.download = `blotchain-snapshot-${mode}-${new Date().getTime()}.png`;
+      a.download = `blotchain-snapshot-crypto-${new Date().getTime()}.png`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
     };
     img.src = url;
-  }, [mode, viewport]);
+  }, [viewport]);
 
   const categories = useMemo(() => {
     const cats = new Set(nodes.filter(n => !n.isHub).map(n => n.category));
@@ -387,8 +370,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       <Header
         lastUpdate={lastUpdate}
-        mode={mode}
-        onModeSwitch={handleModeSwitch}
         onOpenSettings={() => setIsSettingsOpen(true)}
         selectedCount={selectedNodes.size}
         onClearSelection={clearSelection}
@@ -467,13 +448,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <LiveStatus
           nodeCount={nodes.length}
           connectionCount={connections.length}
-          mode={mode}
           className="absolute top-4 right-4 z-10"
         />
 
         <div className="absolute bottom-4 left-4 z-10 flex flex-col gap-2 max-w-[calc(100%-32px)]">
           <Legend
-            mode={mode}
             className="bg-gray-900 bg-opacity-90 backdrop-blur-sm border border-gray-700 rounded-lg p-3 w-full"
           />
           {/* Category Filter positioned vertically below the Legend panel */}
@@ -495,7 +474,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     onClick={() => setCategoryFilter(cat)}
                     className={`px-2.5 py-1 text-[10px] sm:text-xs rounded-md transition-all whitespace-nowrap font-medium ${
                       categoryFilter === cat
-                        ? mode === 'crypto' ? 'bg-blue-600 text-white shadow-lg' : 'bg-purple-600 text-white shadow-lg'
+                        ? 'bg-blue-600 text-white shadow-lg'
                         : 'text-gray-400 hover:text-gray-200 hover:bg-slate-800'
                     }`}
                   >
