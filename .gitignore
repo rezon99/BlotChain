@@ -23,3 +23,8 @@ dist-ssr
 *.sln
 *.sw?
 .env
+
+# Hardhat
+automation/contract/artifacts/**
+automation/contract/cache/**
+automation/contract/typechain-types/**
