@@ -19,11 +19,13 @@ import { adaptNodesToViewport, getResponsiveViewport } from '../utils/dataTransf
 interface DashboardProps {
   viewMode?: '2d' | '3d' | 'vr';
   onViewModeSwitch?: (viewMode: '2d' | '3d' | 'vr') => void;
+  snapshotMode?: boolean;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
   viewMode = '2d',
-  onViewModeSwitch
+  onViewModeSwitch,
+  snapshotMode = false
 }) => {
   const [refreshInterval, setRefreshInterval] = useState<number>(() => {
     const saved = localStorage.getItem('blotchain_refresh_interval');
@@ -121,11 +123,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
         }
       ]);
 
-      if (!node.isHub) {
+      if (!node.isHub && !snapshotMode) {
         setActiveChartNode(node);
       }
     }
-  }, [nodes, manualPositions]);
+  }, [nodes, manualPositions, snapshotMode]);
 
   const toggleComparison = useCallback((nodeId: string) => {
     setSelectedNodes(prev => {
@@ -490,28 +492,34 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       <Tooltip data={tooltip} />
 
-      <SettingsPanel
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        refreshInterval={refreshInterval}
-        setRefreshInterval={setRefreshInterval}
-        animationSettings={animationSettings}
-        setAnimationSettings={setAnimationSettings}
-        onResetLayout={resetLayout}
-        onExportJson={exportToJson}
-        onExportPng={exportToPng}
-      />
+      {!snapshotMode && (
+        <SettingsPanel
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+          refreshInterval={refreshInterval}
+          setRefreshInterval={setRefreshInterval}
+          animationSettings={animationSettings}
+          setAnimationSettings={setAnimationSettings}
+          onResetLayout={resetLayout}
+          onExportJson={exportToJson}
+          onExportPng={exportToPng}
+        />
+      )}
 
-      <ComparisonPanel
-        selectedNodes={selectedNodeData}
-        onClear={clearSelection}
-      />
+      {!snapshotMode && (
+        <ComparisonPanel
+          selectedNodes={selectedNodeData}
+          onClear={clearSelection}
+        />
+      )}
 
-      <ChartModal
-        node={activeChartNode}
-        onClose={() => setActiveChartNode(null)}
-        onAddToComparison={toggleComparison}
-      />
+      {!snapshotMode && (
+        <ChartModal
+          node={activeChartNode}
+          onClose={() => setActiveChartNode(null)}
+          onAddToComparison={toggleComparison}
+        />
+      )}
     </div>
   );
 };
