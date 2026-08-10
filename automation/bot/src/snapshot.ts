@@ -6,9 +6,9 @@ export interface SnapshotResult {
 }
 
 /**
- * Launches Playwright chromium headless, opens the target URL with snapshotMode=1,
+ * Launches Playwright chromium headless, opens the target URL,
  * waits for network idle plus a 2.5s delay for breathing/particle animations to settle,
- * and takes a screenshot matching the Dashboard.tsx SVG viewport dimensions.
+ * and takes a screenshot matching the Dashboard.tsx SVG viewport dimensions (800x600).
  *
  * @param url The target dashboard URL.
  */
@@ -18,15 +18,15 @@ export async function captureSnapshot(url: string): Promise<SnapshotResult> {
     const context = await browser.newContext();
     const page = await context.newPage();
 
-    // Ensure snapshotMode=1 is present in the URL
-    let targetUrl = url;
-    if (!targetUrl.includes('snapshotMode=1')) {
-      const separator = targetUrl.includes('?') ? '&' : '?';
-      targetUrl = `${targetUrl}${separator}snapshotMode=1`;
-    }
+    // Set page viewport size to exactly 800x600 matching Dashboard.tsx SVG dimensions
+    await page.setViewportSize({ width: 800, height: 600 });
 
-    // Navigate and wait for network idle
-    await page.goto(targetUrl, { waitUntil: 'networkidle' });
+    try {
+      // Navigate to the provided URL (with a 15-second timeout) and wait for network idle
+      await page.goto(url, { waitUntil: 'networkidle', timeout: 15000 });
+    } catch (error: any) {
+      throw new Error(`Dashboard failed to load or timed out after 15 seconds: ${error.message}`);
+    }
 
     // Wait for the breathing and particle animations to settle (fixed 2.5s delay)
     await page.waitForTimeout(2500);

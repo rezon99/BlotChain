@@ -30,4 +30,13 @@ describe('captureSnapshot', () => {
     const parsedDate = Date.parse(result.timestamp);
     expect(isNaN(parsedDate)).toBe(false);
   }, 30000); // 30 seconds timeout
+
+  test('throws a clear error when page fails to load or times out', async () => {
+    const badUrl = 'http://localhost:59999/does-not-exist';
+
+    // Verify that the call rejects with the expected custom error message
+    await expect(captureSnapshot(badUrl)).rejects.toThrow(
+      'Dashboard failed to load or timed out after 15 seconds'
+    );
+  }, 10000); // 10 seconds timeout
 });
