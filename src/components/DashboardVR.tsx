@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
-import { Compass, Sparkles, RefreshCw } from 'lucide-react';
+import { Compass, Sparkles, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import { Node as NodeType, AnimationSettings } from '../types';
 import { useRealTimeData } from '../hooks/useRealTimeData';
 import { Header } from './Header';
@@ -48,6 +48,8 @@ export const DashboardVR: React.FC<DashboardVRProps> = ({
 
   // Parallax interaction states
   const [parallaxEnabled, setParallaxEnabled] = useState<boolean>(false);
+  const [isFilterCollapsed, setIsFilterCollapsed] = useState<boolean>(true);
+  const [isInstructionsCollapsed, setIsInstructionsCollapsed] = useState<boolean>(true);
 
   const [animationSettings, setAnimationSettings] = useState<AnimationSettings>(() => {
     const saved = localStorage.getItem('blotchain_animation_settings');
@@ -693,13 +695,23 @@ export const DashboardVR: React.FC<DashboardVRProps> = ({
 
         {/* VR Instructions Overlay with Parallax toggles */}
         <div className="absolute top-4 left-4 z-10 flex flex-col gap-2">
-          <div className="bg-gray-900 bg-opacity-80 backdrop-blur-sm border border-gray-800 rounded-lg p-2.5 max-w-[200px] pointer-events-none">
-            <p className="text-white text-[11px] font-semibold mb-1">VR SPACE MODE</p>
-            <div className="space-y-1 text-gray-400 text-[10px] font-medium">
-              <p className="text-indigo-400 font-bold">• Enter VR button is located at the bottom center</p>
-              <p>• Galaxy dynamically streams API data as you pan/zoom</p>
-              <p>• Toggle Parallax button to unlock immersive depth sway</p>
+          <div className="bg-gray-900 bg-opacity-80 backdrop-blur-sm border border-gray-800 rounded-lg p-2.5 max-w-[200px] overflow-hidden">
+            <div
+              className="flex items-center justify-between cursor-pointer select-none"
+              onClick={() => setIsInstructionsCollapsed(!isInstructionsCollapsed)}
+            >
+              <p className="text-white text-[11px] font-semibold">VR SPACE MODE</p>
+              <span className="text-gray-400">
+                {isInstructionsCollapsed ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
+              </span>
             </div>
+            {!isInstructionsCollapsed && (
+              <div className="mt-1.5 pt-1.5 border-t border-gray-800 space-y-1 text-gray-400 text-[10px] font-medium">
+                <p className="text-indigo-400 font-bold">• Enter VR button is located at the bottom center</p>
+                <p>• Galaxy dynamically streams API data as you pan/zoom</p>
+                <p>• Toggle Parallax button to unlock immersive depth sway</p>
+              </div>
+            )}
           </div>
 
           {/* Quick Action Buttons for VR space */}
@@ -742,20 +754,33 @@ export const DashboardVR: React.FC<DashboardVRProps> = ({
             className="bg-gray-900 bg-opacity-90 backdrop-blur-sm border border-gray-700 rounded-lg p-3 w-full"
           />
           {/* Category Filter positioned vertically below the Legend panel */}
-          <div className="flex items-center gap-1 sm:gap-2 bg-gray-900 bg-opacity-95 backdrop-blur-sm p-1.5 rounded-lg border border-gray-700 overflow-x-auto max-w-full">
-            {categories.map(cat => (
-              <button
-                key={cat}
-                onClick={() => setCategoryFilter(cat)}
-                className={`px-2.5 py-1 text-[10px] sm:text-xs rounded-md transition-all whitespace-nowrap font-medium ${
-                  categoryFilter === cat
-                    ? 'bg-blue-600 text-white shadow-lg'
-                    : 'text-gray-400 hover:text-gray-200 hover:bg-slate-800'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
+          <div className="flex flex-col bg-gray-900 bg-opacity-95 backdrop-blur-sm rounded-lg border border-gray-700 overflow-hidden max-w-full">
+            <div
+              className="flex items-center justify-between px-3 py-1.5 cursor-pointer hover:bg-slate-800/50 transition-colors select-none"
+              onClick={() => setIsFilterCollapsed(!isFilterCollapsed)}
+            >
+              <span className="text-white text-[10px] font-bold uppercase tracking-wider">Categories</span>
+              <span className="text-gray-400">
+                {isFilterCollapsed ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+              </span>
+            </div>
+            {!isFilterCollapsed && (
+              <div className="flex items-center gap-1 sm:gap-2 p-1.5 border-t border-gray-800 overflow-x-auto max-w-full">
+                {categories.map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setCategoryFilter(cat)}
+                    className={`px-2.5 py-1 text-[10px] sm:text-xs rounded-md transition-all whitespace-nowrap font-medium ${
+                      categoryFilter === cat
+                        ? 'bg-blue-600 text-white shadow-lg'
+                        : 'text-gray-400 hover:text-gray-200 hover:bg-slate-800'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

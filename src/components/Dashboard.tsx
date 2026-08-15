@@ -36,7 +36,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
   const [activeChartNode, setActiveChartNode] = useState<NodeType | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
-  const [isFilterCollapsed, setIsFilterCollapsed] = useState(false);
+  const [isFilterCollapsed, setIsFilterCollapsed] = useState(true);
 
   const [manualPositions, setManualPositions] = useState<Record<string, { x: number, y: number }>>(() => {
     const saved = localStorage.getItem('blotchain_positions');
