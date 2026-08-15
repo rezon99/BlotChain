@@ -4,6 +4,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Eye, EyeOff, Layers, RefreshCw, Compass } from 'lucide-react';
 import { Node as NodeType, TooltipData, AnimationSettings } from '../types';
 import { useRealTimeData } from '../hooks/useRealTimeData';
+import { useMEVShieldData } from '../hooks/useMEVShieldData';
 import { Header } from './Header';
 import { Legend } from './Legend';
 import { LiveStatus } from './LiveStatus';
@@ -24,11 +25,13 @@ interface Node3D extends NodeType {
 interface Dashboard3DProps {
   viewMode?: '2d' | '3d' | 'vr';
   onViewModeSwitch?: (viewMode: '2d' | '3d' | 'vr') => void;
+  useMevShield?: boolean;
 }
 
 export const Dashboard3D: React.FC<Dashboard3DProps> = ({
   viewMode = '3d',
-  onViewModeSwitch
+  onViewModeSwitch,
+  useMevShield = true
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -38,7 +41,19 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
     return saved ? parseInt(saved, 10) : 30000;
   });
 
-  const { nodes, connections, loading, error, lastUpdate, refetch } = useRealTimeData(refreshInterval);
+  const realTimeData = useRealTimeData(refreshInterval);
+  const mevShieldData = useMEVShieldData();
+
+  const { nodes, connections, loading, error, lastUpdate, refetch } = useMevShield
+    ? {
+        nodes: mevShieldData.nodes,
+        connections: mevShieldData.connections,
+        loading: mevShieldData.loading,
+        error: null,
+        lastUpdate: mevShieldData.currentPayload ? new Date(mevShieldData.currentPayload.timestamp * 1000) : new Date(),
+        refetch: () => {}
+      }
+    : realTimeData;
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
   const [activeChartNode, setActiveChartNode] = useState<NodeType | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
@@ -278,19 +293,24 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
       const r = getNodeRadius(node.size);
 
       // Sphere Material: Wireframe Mode support (`isStructure`)
+      const isPulsing = (node as any).isPulsing;
+      const threatColor = (node as any).threatColor || node.color;
+
       const sphereMat = new THREE.MeshStandardMaterial({
-        color: new THREE.Color(node.color),
+        color: new THREE.Color(threatColor),
         roughness: 0.15,
         metalness: 0.2,
         transparent: true,
         wireframe: isStructure,
         opacity: node.opacity3d,
-        emissive: new THREE.Color(node.color),
-        emissiveIntensity: node.isHub ? 0.35 : 0.15
+        emissive: new THREE.Color(threatColor),
+        emissiveIntensity: isPulsing ? 0.7 : (node.isHub ? 0.35 : 0.15)
       });
+      sphereMesh.userData = { isPulsing, threatColor };
 
       const sphereMesh = new THREE.Mesh(sphereGeo, sphereMat);
       sphereMesh.scale.setScalar(r);
+      sphereMesh.userData = { isPulsing, threatColor };
       nodeGroup.add(sphereMesh);
 
       scene.add(nodeGroup);
@@ -346,9 +366,9 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
       scene.add(line);
 
       // Particle
-      const flowColor = conn.direction === 'in' ? '#22c55e' : '#f43f5e';
+      const particleColor = conn.particles[0]?.color || (conn.direction === 'in' ? '#22c55e' : '#f43f5e');
       const particleMat = new THREE.MeshBasicMaterial({
-        color: flowColor,
+        color: particleColor,
         transparent: true,
         opacity: 0.9
       });
