@@ -9,11 +9,31 @@ interface LegendProps {
 export const Legend: React.FC<LegendProps> = React.memo(({ className, isCollapsible = true }) => {
   const [isCollapsed, setIsCollapsed] = useState(true);
 
+  const toggleLegend = () => {
+    if (isCollapsible) {
+      setIsCollapsed((prev) => !prev);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (isCollapsible && (e.key === 'Enter' || e.key === ' ')) {
+      e.preventDefault();
+      toggleLegend();
+    }
+  };
+
   return (
     <div className={className ?? "bg-gray-900 bg-opacity-90 backdrop-blur-sm border border-gray-700 rounded-lg p-3 transition-all"}>
       <div
-        className="flex items-center justify-between gap-4 cursor-pointer select-none"
-        onClick={() => isCollapsible && setIsCollapsed(!isCollapsed)}
+        role={isCollapsible ? "button" : undefined}
+        tabIndex={isCollapsible ? 0 : undefined}
+        aria-expanded={isCollapsible ? !isCollapsed : undefined}
+        aria-label={isCollapsible ? (isCollapsed ? "Expand legend" : "Collapse legend") : undefined}
+        className={`flex items-center justify-between gap-4 select-none ${
+          isCollapsible ? "cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded p-0.5" : ""
+        }`}
+        onClick={toggleLegend}
+        onKeyDown={handleKeyDown}
       >
         <h3 className="text-white font-semibold text-xs sm:text-sm flex items-center gap-1.5">
           <HelpCircle size={14} className="text-blue-400" />
