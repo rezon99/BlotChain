@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { Eye, EyeOff, Layers, RefreshCw, Compass } from 'lucide-react';
+import { Eye, EyeOff, Layers, RefreshCw, Compass, ChevronDown, ChevronUp } from 'lucide-react';
 import { Node as NodeType, TooltipData, AnimationSettings } from '../types';
 import { useRealTimeData } from '../hooks/useRealTimeData';
 import { Header } from './Header';
@@ -49,6 +49,8 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
   const [ambientColor, setAmbientColor] = useState<string>('#3b82f6'); // default blue glow
+  const [isFilterCollapsed, setIsFilterCollapsed] = useState<boolean>(true);
+  const [isToolsCollapsed, setIsToolsCollapsed] = useState<boolean>(true);
 
   // Screen projected labels state (Imperative HTML projection)
   const [projectedLabels, setProjectedLabels] = useState<Array<{
@@ -694,17 +696,27 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
         {/* Anatomy Inspired Floating Interactive Tools */}
         <div className="absolute top-4 left-4 z-20 flex flex-col gap-2">
           {/* Instructions */}
-          <div className="bg-slate-900 bg-opacity-90 backdrop-blur-md border border-slate-800 rounded-xl p-3 max-w-[200px] shadow-xl">
-            <p className="text-white text-[11px] font-bold mb-2 flex items-center gap-1">
-              <Compass size={13} className="text-blue-400" />
-              3D VIEWPORT TOOLS
-            </p>
-            <div className="space-y-1 text-gray-400 text-[10px] font-medium leading-relaxed">
-              <p>• Rotate: Left-click + Drag</p>
-              <p>• Zoom: Scroll / Zoom button</p>
-              <p>• Pan: Right-click + Drag</p>
-              <p>• Click node labels to fly & focus</p>
+          <div className="bg-slate-900 bg-opacity-90 backdrop-blur-md border border-slate-800 rounded-xl p-3 max-w-[200px] shadow-xl overflow-hidden">
+            <div
+              className="flex items-center justify-between cursor-pointer select-none"
+              onClick={() => setIsToolsCollapsed(!isToolsCollapsed)}
+            >
+              <p className="text-white text-[11px] font-bold flex items-center gap-1">
+                <Compass size={13} className="text-blue-400" />
+                3D VIEWPORT TOOLS
+              </p>
+              <span className="text-gray-400">
+                {isToolsCollapsed ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
+              </span>
             </div>
+            {!isToolsCollapsed && (
+              <div className="mt-2 pt-2 border-t border-slate-800 space-y-1 text-gray-400 text-[10px] font-medium leading-relaxed">
+                <p>• Rotate: Left-click + Drag</p>
+                <p>• Zoom: Scroll / Zoom button</p>
+                <p>• Pan: Right-click + Drag</p>
+                <p>• Click node labels to fly & focus</p>
+              </div>
+            )}
           </div>
 
           {/* Quick Action Button Drawer */}
@@ -761,20 +773,33 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
             className="bg-gray-900 bg-opacity-90 backdrop-blur-sm border border-gray-700 rounded-lg p-3 w-full"
           />
           {/* Category Filter positioned vertically below the Legend panel */}
-          <div className="flex items-center gap-1 sm:gap-2 bg-gray-900 bg-opacity-95 backdrop-blur-sm p-1.5 rounded-lg border border-gray-700 overflow-x-auto max-w-full">
-            {categories.map(cat => (
-              <button
-                key={cat}
-                onClick={() => setCategoryFilter(cat)}
-                className={`px-2.5 py-1 text-[10px] sm:text-xs rounded-md transition-all whitespace-nowrap font-medium ${
-                  categoryFilter === cat
-                    ? 'bg-blue-600 text-white shadow-lg'
-                    : 'text-gray-400 hover:text-gray-200 hover:bg-slate-800'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
+          <div className="flex flex-col bg-gray-900 bg-opacity-95 backdrop-blur-sm rounded-lg border border-gray-700 overflow-hidden max-w-full">
+            <div
+              className="flex items-center justify-between px-3 py-1.5 cursor-pointer hover:bg-slate-800/50 transition-colors select-none"
+              onClick={() => setIsFilterCollapsed(!isFilterCollapsed)}
+            >
+              <span className="text-white text-[10px] font-bold uppercase tracking-wider">Categories</span>
+              <span className="text-gray-400">
+                {isFilterCollapsed ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+              </span>
+            </div>
+            {!isFilterCollapsed && (
+              <div className="flex items-center gap-1 sm:gap-2 p-1.5 border-t border-gray-800 overflow-x-auto max-w-full">
+                {categories.map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setCategoryFilter(cat)}
+                    className={`px-2.5 py-1 text-[10px] sm:text-xs rounded-md transition-all whitespace-nowrap font-medium ${
+                      categoryFilter === cat
+                        ? 'bg-blue-600 text-white shadow-lg'
+                        : 'text-gray-400 hover:text-gray-200 hover:bg-slate-800'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
