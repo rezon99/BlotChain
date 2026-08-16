@@ -5,6 +5,10 @@ import {
   transformCoinDataToNodes,
   generateConnectionsFromRealData
 } from '../utils/dataTransformer';
+import {
+  generateMockNodes,
+  generateMockConnections
+} from '../utils/dataSimulator';
 
 export function useRealTimeData(
   refreshInterval: number = 30000,
@@ -38,7 +42,16 @@ export function useRealTimeData(
       setLoading(false);
     } catch (err) {
       if (fetchId !== activeFetchId.current) return;
-      console.error('Failed to fetch data:', err);
+      console.warn('Failed to fetch real-time CoinGecko data, falling back to mock simulation:', err);
+      setNodes(prev => {
+        if (prev.length > 0) return prev; // retain previous data if already loaded
+        return generateMockNodes();
+      });
+      setConnections(prev => {
+        if (prev.length > 0) return prev;
+        return generateMockConnections(generateMockNodes());
+      });
+      setLastUpdate(new Date());
       setError(err instanceof Error ? err.message : 'Failed to fetch data');
       setLoading(false);
     }

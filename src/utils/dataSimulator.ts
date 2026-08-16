@@ -42,9 +42,12 @@ export function generateMockNodes(): Node[] {
 
 export function generateMockConnections(nodes: Node[]): Connection[] {
   const connections: Connection[] = [];
+  const seenIds = new Set<string>();
   const connectionCount = Math.min(15, nodes.length * 2);
+  let attempts = 0;
   
-  for (let i = 0; i < connectionCount; i++) {
+  while (connections.length < connectionCount && attempts < connectionCount * 5) {
+    attempts++;
     const sourceIndex = Math.floor(Math.random() * nodes.length);
     let targetIndex = Math.floor(Math.random() * nodes.length);
     
@@ -54,10 +57,14 @@ export function generateMockConnections(nodes: Node[]): Connection[] {
     
     const source = nodes[sourceIndex];
     const target = nodes[targetIndex];
+    const connId = `${source.id}-${target.id}`;
+    if (seenIds.has(connId)) continue;
+    seenIds.add(connId);
+
     const flow = Math.random() * 50000000 + 5000000;
     
     connections.push({
-      id: `${source.id}-${target.id}`,
+      id: connId,
       source: source.id,
       target: target.id,
       flow,

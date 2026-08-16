@@ -33,10 +33,11 @@ def run_verification():
             page.wait_for_timeout(3000)
 
             # Click the VR button in the view modes switcher
-            print("Locating VR SPACE button...")
-            vr_button = page.locator("button:has-text('VR SPACE')")
+            print("Locating VR button...")
+            page.wait_for_selector("button:has-text('VR')", timeout=10000)
+            vr_button = page.locator("button:has-text('VR')")
             if vr_button.count() > 0:
-                print("Clicking VR SPACE button...")
+                print("Clicking VR button...")
                 vr_button.first.click()
                 page.wait_for_timeout(3000)
 
