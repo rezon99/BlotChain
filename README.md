@@ -403,6 +403,11 @@ Dashboard Component
 - ✅ **Интерактивность:** Перетаскивание (Drag-and-drop) узлов с сохранением позиций.
 - ✅ **NFT Поддержка:** Отдельный режим для визуализации NFT коллекций.
 
+### 🤖 Telegram Bot & Automation Service
+A long-lived Telegram bot process in `automation/bot/src/telegramBot.ts` supports interactive `/mint`, `/burn`, `/status`, and `/balance` commands in polling mode.
+
+> **Deployment Note:** The interactive Telegram bot requires a long-lived host (e.g., VPS, Railway, Render, Fly.io). Standard GitHub Actions runners are unsuitable for running the polling listener process as they terminate when workflow execution finishes.
+
 ### 📋 Планируется (Бэклог)
 1. **Аналитика и Графики:**
    - Расчет корреляции между выбранными активами.

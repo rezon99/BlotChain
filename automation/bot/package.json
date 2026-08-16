@@ -2,10 +2,13 @@
   "name": "@blotchain/automation-bot",
   "version": "1.0.0",
   "description": "Orchestrator and snapshot generator bot for BlotChain dashboard",
-  "main": "dist/index.js",
+  "type": "module",
+  "main": "dist/telegramBot.js",
   "scripts": {
-    "start": "node dist/index.js",
-    "build": "tsc"
+    "start": "node dist/telegramBot.js",
+    "bot:start": "node dist/telegramBot.js",
+    "build": "tsc",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js dist/test"
   },
   "dependencies": {
     "@blotchain/automation-shared": "file:../shared",
@@ -15,8 +18,12 @@
     "puppeteer": "^22.6.0"
   },
   "devDependencies": {
+    "@jest/globals": "^30.4.1",
+    "@types/jest": "^30.0.0",
     "@types/node": "^20.11.24",
     "@types/node-telegram-bot-api": "^0.64.4",
+    "jest": "^30.4.2",
+    "ts-jest": "^29.4.12",
     "typescript": "^5.5.3"
   }
 }
