@@ -46,3 +46,17 @@ export interface AnimationSettings {
   particleSpeed: number;
   breathingIntensity: number;
 }
+
+export interface DashboardMetadataSchema {
+  timestamp: string;
+  screenshotUrl: string;
+  ipfsHash?: string;
+  nodes: Node[];
+  connections: Connection[];
+  stats: {
+    totalMarketCap: number;
+    totalVolume24h: number;
+    activeNodesCount: number;
+    activeConnectionsCount: number;
+  };
+}

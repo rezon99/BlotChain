@@ -1,21 +1,18 @@
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { DashboardMode } from '../types';
 
 interface LiveStatusProps {
   nodeCount: number;
   connectionCount: number;
-  mode: DashboardMode;
   className?: string;
 }
 
 export const LiveStatus: React.FC<LiveStatusProps> = React.memo(({
   nodeCount,
   connectionCount,
-  mode,
   className
 }) => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
 
   return (
     <div
@@ -33,7 +30,7 @@ export const LiveStatus: React.FC<LiveStatusProps> = React.memo(({
         <>
           <div className="w-px h-3 bg-slate-700" />
           <div className="text-gray-400 text-[10px] font-mono uppercase whitespace-nowrap">
-            {nodeCount} {mode === 'crypto' ? 'Assets' : 'Collections'} • {connectionCount} Links
+            {nodeCount} Assets • {connectionCount} Links
           </div>
         </>
       )}

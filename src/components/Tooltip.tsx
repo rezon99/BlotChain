@@ -103,12 +103,38 @@ export const Tooltip: React.FC<TooltipProps> = ({ data }) => {
           </div>
         )}
 
+        {/* MEVShield Threat Vector Details */}
+        {(node as any).riskScore !== undefined && (
+          <div className="mt-3 pt-3 border-t border-gray-700 space-y-1.5">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-gray-400 uppercase tracking-wider font-bold">MEV Risk:</span>
+              <span className="font-bold px-1.5 py-0.5 rounded text-[10px]" style={{
+                backgroundColor: `${(node as any).threatColor || node.color}22`,
+                color: (node as any).threatColor || node.color,
+                border: `1px solid ${(node as any).threatColor || node.color}44`
+              }}>
+                {((node as any).riskScore * 100).toFixed(0)}% ({(node as any).threatLevel || 'UNKNOWN'})
+              </span>
+            </div>
+            {(node as any).detectedThreats && (node as any).detectedThreats.length > 0 && (
+              <div className="text-[11px] text-red-400 font-mono">
+                Threats: {(node as any).detectedThreats.join(', ')}
+              </div>
+            )}
+            {(node as any).actionTaken && (
+              <div className="text-[10px] text-indigo-300 font-mono">
+                Action: {(node as any).actionTaken}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Status indicator */}
         <div className="mt-3 pt-2 border-t border-gray-700">
           <div className="flex items-center gap-2">
             <div
               className="w-2 h-2 rounded-full"
-              style={{ backgroundColor: node.color }}
+              style={{ backgroundColor: (node as any).threatColor || node.color }}
             />
             <span className="text-xs text-gray-400">
               {Math.abs(node.change24h) > 20 ? 'High Volatility' :

@@ -1,15 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Node, Connection, DashboardMode } from '../types';
+import { Node, Connection } from '../types';
 import { coinGeckoApi } from '../services/coinGeckoApi';
 import {
   transformCoinDataToNodes,
-  generateConnectionsFromRealData,
-  transformNFTDataToNodes,
-  generateNFTConnections
+  generateConnectionsFromRealData
 } from '../utils/dataTransformer';
 
 export function useRealTimeData(
-  mode: DashboardMode = 'crypto',
   refreshInterval: number = 30000,
   limit: number = 15
 ) {
@@ -27,25 +24,13 @@ export function useRealTimeData(
       setLoading(true);
       setError(null);
       
-      let newNodes: Node[] = [];
-      let newConnections: Connection[] = [];
-
-      if (mode === 'crypto') {
-        const [coinsData, exchangesData] = await Promise.all([
-          coinGeckoApi.getTopCoins(limit),
-          coinGeckoApi.getExchanges(Math.max(5, Math.floor(limit / 3)))
-        ]);
-        if (fetchId !== activeFetchId.current) return;
-        newNodes = transformCoinDataToNodes(coinsData, exchangesData);
-        newConnections = generateConnectionsFromRealData(newNodes);
-      } else {
-        const nftData = await coinGeckoApi.getNFTMarkets(limit);
-        if (fetchId !== activeFetchId.current) return;
-        newNodes = transformNFTDataToNodes(nftData);
-        newConnections = generateNFTConnections(newNodes);
-      }
-
+      const [coinsData, exchangesData] = await Promise.all([
+        coinGeckoApi.getTopCoins(limit),
+        coinGeckoApi.getExchanges(Math.max(5, Math.floor(limit / 3)))
+      ]);
       if (fetchId !== activeFetchId.current) return;
+      const newNodes = transformCoinDataToNodes(coinsData, exchangesData);
+      const newConnections = generateConnectionsFromRealData(newNodes);
 
       setNodes(newNodes);
       setConnections(newConnections);
@@ -57,7 +42,7 @@ export function useRealTimeData(
       setError(err instanceof Error ? err.message : 'Failed to fetch data');
       setLoading(false);
     }
-  }, [mode, limit]);
+  }, [limit]);
 
   // Initial data fetch
   useEffect(() => {

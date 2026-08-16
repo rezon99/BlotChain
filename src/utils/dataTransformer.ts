@@ -1,5 +1,5 @@
 import { Node, Connection } from '../types';
-import { CoinMarketData, ExchangeData, NFTMarketData } from '../services/coinGeckoApi';
+import { CoinMarketData, ExchangeData } from '../services/coinGeckoApi';
 import { calculateNodeSize, getNodeColor, generateParticles } from './visuals';
 import { applyForceDirectedLayout } from './collisionDetection';
 
@@ -139,7 +139,7 @@ export function transformCoinDataToNodes(
       ),
       isSelected: false,
       lastUpdated: Date.now(),
-      sparkline: item.sparkline_in_7d?.price
+      sparkline: item.type === 'coin' ? item.sparkline_in_7d?.price : undefined
     };
   });
 
@@ -231,94 +231,6 @@ function createConnection(source: Node, target: Node): Connection {
     direction: source.liquidity > target.liquidity ? 'out' : 'in',
     particles: generateParticles(Math.min(5, Math.max(1, Math.floor(flow / 50000000))))
   };
-}
-
-export function transformNFTDataToNodes(
-  nftData: NFTMarketData[],
-  viewport: ViewportConfig = getResponsiveViewport(800, 600)
-): Node[] {
-  const nodes: Node[] = [];
-  const platforms = Array.from(new Set(nftData.map(nft => nft.asset_platform_id)));
-
-  // Create platform hub nodes
-  const platformHubs: Record<string, Node> = {};
-  const hubPositions = generateConcentricPositions(Math.max(platforms.length, 1), {
-    ...viewport,
-    padding: viewport.padding + 20
-  });
-  platforms.forEach((platform, index) => {
-    const hubNode: Node = {
-      id: `hub-${platform}`,
-      name: platform.charAt(0).toUpperCase() + platform.slice(1),
-      category: 'Blockchain',
-      price: 0,
-      liquidity: 0,
-      change24h: 0,
-      change7d: 0,
-      x: hubPositions[index]?.x ?? viewport.width / 2,
-      y: hubPositions[index]?.y ?? viewport.height / 2,
-      size: calculateNodeSize(0, viewport.width, true),
-      color: '#3b82f6',
-      isSelected: false,
-      lastUpdated: Date.now(),
-      isHub: true
-    };
-    platformHubs[platform] = hubNode;
-    nodes.push(hubNode);
-  });
-
-  // Create NFT collection nodes
-  nftData.forEach((nft) => {
-    const hub = platformHubs[nft.asset_platform_id];
-    const angle = Math.random() * 2 * Math.PI;
-    const distance = Math.max(55, Math.min(140, Math.min(viewport.width, viewport.height) * 0.18));
-
-    nodes.push({
-      id: nft.id,
-      name: nft.name,
-      category: nft.asset_platform_id,
-      price: nft.floor_price.usd,
-      liquidity: nft.market_cap.usd,
-      change24h: nft.floor_price_in_usd_24h_percentage_change,
-      change7d: 0, // Not available in simple market data
-      x: hub.x + Math.cos(angle) * distance,
-      y: hub.y + Math.sin(angle) * distance,
-      size: calculateNodeSize(nft.market_cap.usd, viewport.width, false),
-      color: getNodeColor(nft.floor_price_in_usd_24h_percentage_change, 0),
-      isSelected: false,
-      lastUpdated: Date.now(),
-      volume24h: nft.volume_24h.usd,
-      image: nft.image.small
-    });
-  });
-
-  return applyForceDirectedLayout(nodes, viewport, {
-    minDistance: viewport.width <= 640 ? 10 : 14,
-    repulsionStrength: viewport.width <= 640 ? 1.15 : 0.9,
-    centerAttraction: 0.02
-  });
-}
-
-export function generateNFTConnections(nodes: Node[]): Connection[] {
-  const connections: Connection[] = [];
-  const hubs = nodes.filter(n => n.isHub);
-  const collections = nodes.filter(n => !n.isHub);
-
-  collections.forEach(collection => {
-    const hub = hubs.find(h => h.id === `hub-${collection.category}`);
-    if (hub) {
-      connections.push({
-        id: `${hub.id}-${collection.id}`,
-        source: hub.id,
-        target: collection.id,
-        flow: collection.volume24h || 0,
-        direction: 'out',
-        particles: generateParticles(Math.min(5, Math.max(1, Math.floor((collection.volume24h || 0) / 100000))))
-      });
-    }
-  });
-
-  return connections;
 }
 
 function getCoinCategory(name: string, symbol: string, rank: number): string {
