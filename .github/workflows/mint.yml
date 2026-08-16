@@ -1,0 +1,46 @@
+name: Scheduled Snapshot Mint Orchestrator
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+jobs:
+  mint:
+    name: Run Mint Orchestrator Cycle
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Dependencies
+        run: |
+          cd automation/bot
+          npm install
+
+      - name: Install Playwright Chromium Browser
+        run: |
+          cd automation/bot
+          npx playwright install chromium --with-deps
+
+      - name: Build and Run Orchestrator
+        run: |
+          cd automation/bot
+          npm run build
+          node dist/index.js
+        env:
+          RPC_URL: ${{ secrets.RPC_URL }}
+          OPERATOR_PRIVATE_KEY: ${{ secrets.OPERATOR_PRIVATE_KEY }}
+          PINATA_JWT: ${{ secrets.PINATA_JWT }}
+          PINATA_GATEWAY: ${{ secrets.PINATA_GATEWAY }}
+          CONTRACT_ADDRESS: ${{ secrets.CONTRACT_ADDRESS }}
+          DASHBOARD_SNAPSHOT_URL: ${{ secrets.DASHBOARD_SNAPSHOT_URL }}
+          VITE_COINGECKO_API_KEY: ${{ secrets.VITE_COINGECKO_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}

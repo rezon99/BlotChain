@@ -3,9 +3,10 @@
   "version": "1.0.0",
   "description": "Orchestrator and snapshot generator bot for BlotChain dashboard",
   "type": "module",
-  "main": "dist/telegramBot.js",
+  "main": "dist/index.js",
   "scripts": {
-    "start": "node dist/telegramBot.js",
+    "start": "node dist/index.js",
+    "orchestrator": "node dist/index.js",
     "bot:start": "node dist/telegramBot.js",
     "build": "tsc",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js dist/test"
