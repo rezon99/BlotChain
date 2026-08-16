@@ -5,6 +5,7 @@ import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
 import { Compass, Sparkles, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import { Node as NodeType, AnimationSettings } from '../types';
 import { useRealTimeData } from '../hooks/useRealTimeData';
+import { useMEVShieldData } from '../hooks/useMEVShieldData';
 import { Header } from './Header';
 import { Legend } from './Legend';
 import { LiveStatus } from './LiveStatus';
@@ -24,10 +25,12 @@ interface Node3D extends NodeType {
 
 interface DashboardVRProps {
   onViewModeSwitch: (viewMode: '2d' | '3d' | 'vr') => void;
+  useMevShield?: boolean;
 }
 
 export const DashboardVR: React.FC<DashboardVRProps> = ({
-  onViewModeSwitch
+  onViewModeSwitch,
+  useMevShield = true
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -41,7 +44,19 @@ export const DashboardVR: React.FC<DashboardVRProps> = ({
   const [apiLimit, setApiLimit] = useState<number>(20);
   const currentLimitRef = useRef<number>(20);
 
-  const { nodes, connections, loading, error, lastUpdate, refetch } = useRealTimeData(refreshInterval, apiLimit);
+  const realTimeData = useRealTimeData(refreshInterval, apiLimit);
+  const mevShieldData = useMEVShieldData();
+
+  const { nodes, connections, loading, error, lastUpdate, refetch } = useMevShield
+    ? {
+        nodes: mevShieldData.nodes,
+        connections: mevShieldData.connections,
+        loading: mevShieldData.loading,
+        error: null,
+        lastUpdate: mevShieldData.currentPayload ? new Date(mevShieldData.currentPayload.timestamp * 1000) : new Date(),
+        refetch: () => {}
+      }
+    : realTimeData;
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
   const [activeChartNode, setActiveChartNode] = useState<NodeType | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
@@ -315,14 +330,17 @@ export const DashboardVR: React.FC<DashboardVRProps> = ({
       const isHighlighted = selectedNodes.size === 0 || selectedNodes.has(node.id);
       const finalOpacity = node.opacity3d * (isHighlighted ? 1.0 : 0.25);
 
+      const isPulsing = (node as any).isPulsing;
+      const threatColor = (node as any).threatColor || node.color;
+
       const sphereMat = new THREE.MeshStandardMaterial({
-        color: new THREE.Color(node.color),
+        color: new THREE.Color(threatColor),
         roughness: 0.3,
         metalness: 0.1,
         transparent: true,
         opacity: finalOpacity,
-        emissive: new THREE.Color(node.color),
-        emissiveIntensity: isSelected ? 0.9 : (node.isHub ? 0.35 : 0.15)
+        emissive: new THREE.Color(threatColor),
+        emissiveIntensity: isPulsing ? 0.8 : (isSelected ? 0.9 : (node.isHub ? 0.35 : 0.15))
       });
 
       const sphereMesh = new THREE.Mesh(sphereGeo, sphereMat);
@@ -406,9 +424,9 @@ export const DashboardVR: React.FC<DashboardVRProps> = ({
       const line = new THREE.Line(lineGeo, isConnHighlighted ? activeLineMaterial : lineMaterial);
       constellationGroup.add(line);
 
-      const flowColor = conn.direction === 'in' ? '#10b981' : '#f43f5e';
+      const particleColor = conn.particles[0]?.color || (conn.direction === 'in' ? '#10b981' : '#f43f5e');
       const particleMat = new THREE.MeshBasicMaterial({
-        color: flowColor,
+        color: particleColor,
         transparent: true,
         opacity: isConnHighlighted ? 0.9 : 0.2
       });

@@ -12,27 +12,43 @@ import { ComparisonPanel } from './ComparisonPanel';
 import { Header } from './Header';
 import { Legend } from './Legend';
 import { LiveStatus } from './LiveStatus';
+import { MEVShieldPanel } from './MEVShieldPanel';
 import { ChartModal } from './ChartModal';
 import { useRealTimeData } from '../hooks/useRealTimeData';
+import { useMEVShieldData } from '../hooks/useMEVShieldData';
 import { adaptNodesToViewport, getResponsiveViewport } from '../utils/dataTransformer';
 
 interface DashboardProps {
   viewMode?: '2d' | '3d' | 'vr';
   onViewModeSwitch?: (viewMode: '2d' | '3d' | 'vr') => void;
   snapshotMode?: boolean;
+  useMevShield?: boolean;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
   viewMode = '2d',
   onViewModeSwitch,
-  snapshotMode = false
+  snapshotMode = false,
+  useMevShield = true
 }) => {
   const [refreshInterval, setRefreshInterval] = useState<number>(() => {
     const saved = localStorage.getItem('blotchain_refresh_interval');
     return saved ? parseInt(saved, 10) : 30000;
   });
 
-  const { nodes, connections, loading, error, lastUpdate, refetch } = useRealTimeData(refreshInterval, 20);
+  const realTimeData = useRealTimeData(refreshInterval, 20);
+  const mevShieldData = useMEVShieldData();
+
+  const { nodes, connections, loading, error, lastUpdate, refetch } = useMevShield
+    ? {
+        nodes: mevShieldData.nodes,
+        connections: mevShieldData.connections,
+        loading: mevShieldData.loading,
+        error: null,
+        lastUpdate: mevShieldData.currentPayload ? new Date(mevShieldData.currentPayload.timestamp * 1000) : new Date(),
+        refetch: () => {}
+      }
+    : realTimeData;
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
   const [activeChartNode, setActiveChartNode] = useState<NodeType | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
@@ -446,11 +462,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         )}
 
+        {useMevShield && mevShieldData.currentPayload && (
+          <div className="absolute top-4 left-4 z-20 max-w-xl">
+            <MEVShieldPanel payload={mevShieldData.currentPayload} />
+          </div>
+        )}
+
         {/* Floating Controls Overlays */}
         <LiveStatus
           nodeCount={nodes.length}
           connectionCount={connections.length}
-          className="absolute top-4 right-4 z-10"
+          className={`absolute ${useMevShield ? 'top-20' : 'top-4'} right-4 z-10`}
         />
 
         <div className="absolute bottom-4 left-4 z-10 flex flex-col gap-2 max-w-[calc(100%-32px)]">
