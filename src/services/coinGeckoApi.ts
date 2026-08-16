@@ -149,7 +149,9 @@ class CoinGeckoApiService {
     }
 
     try {
-      return await this.makeRequest<MarketChartData>(`/coins/${coinId}/market_chart`, params);
+      // Sanitize coinId to prevent URL path injection/traversal
+      const safeCoinId = encodeURIComponent(coinId);
+      return await this.makeRequest<MarketChartData>(`/coins/${safeCoinId}/market_chart`, params);
     } catch (error) {
       console.warn(`Coin history failed for ${coinId}, using simulation fallback:`, error);
 
