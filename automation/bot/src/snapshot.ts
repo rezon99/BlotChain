@@ -1,4 +1,4 @@
-import puppeteer from 'puppeteer';
+import { chromium } from 'playwright';
 
 export interface SnapshotResult {
   imageBuffer: Buffer;
@@ -9,33 +9,34 @@ export async function captureSnapshot(url?: string): Promise<SnapshotResult> {
   const targetUrl = url || process.env.DASHBOARD_SNAPSHOT_URL || 'http://localhost:5173?snapshotMode=1';
   const timestamp = new Date().toISOString();
 
+  let browser;
   try {
-    const browser = await puppeteer.launch({
+    browser = await chromium.launch({
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
     const page = await browser.newPage();
-    await page.setViewport({ width: 800, height: 600 });
-    await page.goto(targetUrl, { waitUntil: 'networkidle0', timeout: 15000 });
-    // Wait brief delay for animation stability
-    await new Promise((resolve) => setTimeout(resolve, 2500));
+    await page.setViewportSize({ width: 800, height: 600 });
+
+    await page.goto(targetUrl, {
+      waitUntil: 'networkidle',
+      timeout: 15000,
+    });
+
+    // Wait 2.5s delay for animation stability
+    await page.waitForTimeout(2500);
+
     const screenshot = await page.screenshot({ type: 'png' });
-    await browser.close();
 
     return {
-      imageBuffer: screenshot as Buffer,
-      timestamp
+      imageBuffer: screenshot,
+      timestamp,
     };
   } catch (error) {
-    // If puppeteer navigation fails (e.g. no local web server running in test/demo env),
-    // produce a 1x1 dummy PNG buffer so the pipeline can proceed gracefully in fallback mode.
-    const dummyPngBuffer = Buffer.from(
-      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
-      'base64'
-    );
-    return {
-      imageBuffer: dummyPngBuffer,
-      timestamp
-    };
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to capture dashboard snapshot for URL "${targetUrl}": ${message}`);
+  } finally {
+    if (browser) {
+      await browser.close().catch(() => {});
+    }
   }
 }

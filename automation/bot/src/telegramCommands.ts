@@ -36,8 +36,8 @@ export function setupTelegramCommands(bot: TelegramBot): void {
             msg.chat.id,
             `✅ Snapshot Minted Successfully!\n\nToken ID: ${result.tokenId}\nOpenSea: ${result.openSeaUrl}`
           );
-        } catch (err: any) {
-          const errorMsg = err.message || 'Unknown error occurred during minting pipeline';
+        } catch (err: unknown) {
+          const errorMsg = err instanceof Error ? err.message : 'Unknown error occurred during minting pipeline';
           await bot.sendMessage(msg.chat.id, `❌ Mint Failed: ${errorMsg}`);
         }
         break;
@@ -76,8 +76,9 @@ export function setupTelegramCommands(bot: TelegramBot): void {
             msg.chat.id,
             `📊 BlotChain Bot Status:\n\nTotal NFT Supply: ${totalSupply}\nOperator Balance: ${balance} MATIC\nLast Successful Mint: ${lastMintTime}`
           );
-        } catch (err: any) {
-          await bot.sendMessage(msg.chat.id, `❌ Failed to fetch status: ${err.message}`);
+        } catch (err: unknown) {
+          const errorMsg = err instanceof Error ? err.message : String(err);
+          await bot.sendMessage(msg.chat.id, `❌ Failed to fetch status: ${errorMsg}`);
         }
         break;
       }
@@ -86,8 +87,9 @@ export function setupTelegramCommands(bot: TelegramBot): void {
         try {
           const balance = await getOperatorBalance();
           await bot.sendMessage(msg.chat.id, `💰 Operator Wallet Balance: ${balance} MATIC`);
-        } catch (err: any) {
-          await bot.sendMessage(msg.chat.id, `❌ Failed to fetch balance: ${err.message}`);
+        } catch (err: unknown) {
+          const errorMsg = err instanceof Error ? err.message : String(err);
+          await bot.sendMessage(msg.chat.id, `❌ Failed to fetch balance: ${errorMsg}`);
         }
         break;
       }

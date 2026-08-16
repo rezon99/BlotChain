@@ -2,9 +2,9 @@ import { jest, describe, beforeEach, it, expect } from '@jest/globals';
 import EventEmitter from 'events';
 
 // Mocks
-const mockRunMintPipeline = jest.fn<() => Promise<any>>();
-const mockReadMintLog = jest.fn<() => any>();
-const mockBurnSnapshotToken = jest.fn<(tokenId: string | number) => Promise<any>>();
+const mockRunMintPipeline = jest.fn<() => Promise<unknown>>();
+const mockReadMintLog = jest.fn<() => unknown>();
+const mockBurnSnapshotToken = jest.fn<(tokenId: string | number) => Promise<unknown>>();
 const mockGetTotalSupply = jest.fn<() => Promise<number>>();
 const mockGetOperatorBalance = jest.fn<() => Promise<string>>();
 
@@ -23,7 +23,7 @@ jest.unstable_mockModule('../src/contractClient.js', () => ({
 const { setupTelegramCommands } = await import('../src/telegramCommands.js');
 
 class MockTelegramBot extends EventEmitter {
-  sendMessage = jest.fn<any>();
+  sendMessage = jest.fn<(...args: unknown[]) => unknown>();
 }
 
 describe('Telegram Commands', () => {
@@ -35,7 +35,7 @@ describe('Telegram Commands', () => {
     jest.clearAllMocks();
     process.env.TELEGRAM_CHAT_ID = ALLOWED_CHAT_ID;
     bot = new MockTelegramBot();
-    setupTelegramCommands(bot as any);
+    setupTelegramCommands(bot as unknown as import('node-telegram-bot-api'));
   });
 
   describe('Authorization checks', () => {
