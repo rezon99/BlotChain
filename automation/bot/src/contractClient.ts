@@ -71,10 +71,11 @@ export async function burnSnapshotToken(tokenId: number | string): Promise<{ suc
     const tx = await contract.burn(tokenId);
     const receipt = await tx.wait();
     return { success: true, txHash: receipt.hash };
-  } catch (err: any) {
-    let reason = err.reason || err.message || 'Unknown error during burn execution';
-    if (err.info && err.info.error && err.info.error.message) {
-      reason = err.info.error.message;
+  } catch (err: unknown) {
+    const errorObj = err as { reason?: string; message?: string; info?: { error?: { message?: string } } };
+    let reason = errorObj.reason || errorObj.message || 'Unknown error during burn execution';
+    if (errorObj.info?.error?.message) {
+      reason = errorObj.info.error.message;
     }
     return { success: false, error: reason };
   }
