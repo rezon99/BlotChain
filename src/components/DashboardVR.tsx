@@ -50,12 +50,20 @@ export const DashboardVR: React.FC<DashboardVRProps> = ({
   const [parallaxEnabled, setParallaxEnabled] = useState<boolean>(false);
 
   const [animationSettings, setAnimationSettings] = useState<AnimationSettings>(() => {
-    const saved = localStorage.getItem('blotchain_animation_settings');
-    return saved ? JSON.parse(saved) : {
+    const defaultSettings: AnimationSettings = {
       enabled: true,
       particleSpeed: 1,
       breathingIntensity: 1
     };
+    try {
+      const saved = localStorage.getItem('blotchain_animation_settings');
+      return saved ? JSON.parse(saved) : defaultSettings;
+    } catch (e) {
+      // Handle untrusted/corrupted JSON gracefully to prevent application crash
+      console.warn('Failed to parse blotchain_animation_settings from localStorage:', e);
+      localStorage.removeItem('blotchain_animation_settings');
+      return defaultSettings;
+    }
   });
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
