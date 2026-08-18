@@ -310,13 +310,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return ['All', ...Array.from(cats)].sort();
   }, [nodes]);
 
-  const filteredNodes = useMemo(() => {
+  // Memoize force-directed viewport adaptation separately so manual node dragging
+  // updates manualPositions without re-executing 40 iterations of force layout physics.
+  const adaptedNodes = useMemo(() => {
     const baseNodes = categoryFilter === 'All'
       ? nodes
       : nodes.filter(n => n.category === categoryFilter || n.isHub);
 
-    const adaptedNodes = adaptNodesToViewport(baseNodes, viewport.width, viewport.height);
+    return adaptNodesToViewport(baseNodes, viewport.width, viewport.height);
+  }, [nodes, categoryFilter, viewport]);
 
+  const filteredNodes = useMemo(() => {
     return adaptedNodes.map(node => {
       const manual = manualPositions[node.id];
       if (manual) {
@@ -334,7 +338,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       }
       return node;
     });
-  }, [nodes, categoryFilter, manualPositions, viewport]);
+  }, [adaptedNodes, manualPositions, viewport]);
 
   const filteredNodesMap = useMemo(() => {
     return new Map<string, NodeType>(filteredNodes.map(node => [node.id, node]));

@@ -162,33 +162,40 @@ function getDeterministicFloat(str1: string, str2: string = ''): number {
 
 export function generateConnectionsFromRealData(nodes: Node[]): Connection[] {
   const connections: Connection[] = [];
-  
+  const connectionSet = new Set<string>();
+
+  const addConnection = (c: Connection) => {
+    connections.push(c);
+    connectionSet.add(`${c.source}-${c.target}`);
+    connectionSet.add(`${c.target}-${c.source}`);
+  };
+
   // Create connections based on market relationships
   const cexs = nodes.filter(n => n.category === 'CEX');
   const top10 = nodes.filter(n => n.category === 'Top 10');
   const amms = nodes.filter(n => n.category === 'AMM / DEX' || n.category === 'Protocols / Altcoins');
-  
+
   // Connect centralized exchanges to Top 10 coins
   cexs.forEach(cex => {
     top10.slice(0, 3).forEach(coin => {
       // Deterministic 70% chance of connection
       if (getDeterministicFloat(cex.id, coin.id) > 0.3) {
-        connections.push(createConnection(cex, coin));
+        addConnection(createConnection(cex, coin));
       }
     });
   });
-  
+
   // Connect AMMs/Protocols to Top 10 coins deterministically
   amms.forEach(amm => {
     if (top10.length > 0) {
       const idx = Math.floor(getDeterministicFloat(amm.id) * top10.length);
       const chosenTop10 = top10[idx];
       if (chosenTop10) {
-        connections.push(createConnection(amm, chosenTop10));
+        addConnection(createConnection(amm, chosenTop10));
       }
     }
   });
-  
+
   // Add deterministic connections for network effect across categories
   const extraConnections: Connection[] = [];
   for (let i = 0; i < nodes.length; i++) {
@@ -201,11 +208,7 @@ export function generateConnectionsFromRealData(nodes: Node[]): Connection[] {
 
       const hashVal = getDeterministicFloat(source.id, target.id);
       if (hashVal > 0.88) { // select top ~12% deterministic node pairs
-        const exists = connections.some(c =>
-          (c.source === source.id && c.target === target.id) ||
-          (c.source === target.id && c.target === source.id)
-        );
-        if (!exists) {
+        if (!connectionSet.has(`${source.id}-${target.id}`)) {
           extraConnections.push(createConnection(source, target));
         }
       }
