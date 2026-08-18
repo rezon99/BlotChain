@@ -39,6 +39,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
             <div className="flex bg-slate-800/80 p-1 rounded-xl border border-slate-700 backdrop-blur-md overflow-x-auto gap-1">
               <button
                 onClick={() => onViewModeSwitch('2d')}
+                aria-pressed={viewMode === '2d'}
                 className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-4 rounded-lg text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
                   viewMode === '2d' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-gray-200'
                 }`}
@@ -48,6 +49,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
               </button>
               <button
                 onClick={() => onViewModeSwitch('3d')}
+                aria-pressed={viewMode === '3d'}
                 className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-4 rounded-lg text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
                   viewMode === '3d' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-gray-200'
                 }`}
@@ -57,6 +59,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
               </button>
               <button
                 onClick={() => onViewModeSwitch('vr')}
+                aria-pressed={viewMode === 'vr'}
                 className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-4 rounded-lg text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
                   viewMode === 'vr' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400 hover:text-gray-200'
                 }`}
@@ -71,6 +74,7 @@ export const Header: React.FC<HeaderProps> = React.memo(({
         <div className="flex items-center gap-2 sm:gap-4 flex-wrap w-auto">
           <button
             onClick={onOpenSettings}
+            aria-label="Open settings"
             className="p-2 bg-slate-800 hover:bg-slate-700 text-gray-300 rounded-lg border border-slate-700 transition-colors"
             title="Settings"
           >
