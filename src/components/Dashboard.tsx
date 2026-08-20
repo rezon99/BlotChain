@@ -36,7 +36,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
   const [activeChartNode, setActiveChartNode] = useState<NodeType | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
-  const [isFilterCollapsed, setIsFilterCollapsed] = useState(false);
+  const [isFilterCollapsed, setIsFilterCollapsed] = useState(true);
 
   const [manualPositions, setManualPositions] = useState<Record<string, { x: number, y: number }>>(() => {
     try {
@@ -222,6 +222,54 @@ export const Dashboard: React.FC<DashboardProps> = ({
     e.stopPropagation();
   }, []);
 
+  const categories = useMemo(() => {
+    const cats = new Set(nodes.filter(n => !n.isHub).map(n => n.category));
+    return ['All', ...Array.from(cats)].sort();
+  }, [nodes]);
+
+  // Memoize force-directed viewport adaptation separately so manual node dragging
+  // updates manualPositions without re-executing 40 iterations of force layout physics.
+  const adaptedNodes = useMemo(() => {
+    const baseNodes = categoryFilter === 'All'
+      ? nodes
+      : nodes.filter(n => n.category === categoryFilter || n.isHub);
+
+    return adaptNodesToViewport(baseNodes, viewport.width, viewport.height);
+  }, [nodes, categoryFilter, viewport]);
+
+  const filteredNodes = useMemo(() => {
+    return adaptedNodes.map(node => {
+      const manual = manualPositions[node.id];
+      if (manual) {
+        const labelSafetyMarginX = 35;
+        const minX = Math.max(viewport.padding, labelSafetyMarginX) + node.size;
+        const maxX = viewport.width - Math.max(viewport.padding, labelSafetyMarginX) - node.size;
+        const minY = viewport.padding + node.size;
+        const maxY = viewport.height - viewport.padding - node.size - 40; // leave 40px for labels at bottom
+
+        return {
+          ...node,
+          x: Math.max(minX, Math.min(maxX, manual.x)),
+          y: Math.max(minY, Math.min(maxY, manual.y))
+        };
+      }
+      return node;
+    });
+  }, [adaptedNodes, manualPositions, viewport]);
+
+  const filteredNodesMap = useMemo(() => {
+    return new Map<string, NodeType>(filteredNodes.map(node => [node.id, node]));
+  }, [filteredNodes]);
+
+  const filteredConnections = useMemo(() => {
+    const filteredNodeIds = new Set(filteredNodes.map(n => n.id));
+    return connections.filter(c => filteredNodeIds.has(c.source) && filteredNodeIds.has(c.target));
+  }, [connections, filteredNodes]);
+
+  const selectedNodeData = useMemo(() => {
+    return nodes.filter(n => selectedNodes.has(n.id));
+  }, [nodes, selectedNodes]);
+
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     if (!draggingNodeId) return;
 
@@ -321,53 +369,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
     img.src = url;
   }, [viewport]);
 
-  const categories = useMemo(() => {
-    const cats = new Set(nodes.filter(n => !n.isHub).map(n => n.category));
-    return ['All', ...Array.from(cats)].sort();
-  }, [nodes]);
-
-  // Memoize force-directed viewport adaptation separately so manual node dragging
-  // updates manualPositions without re-executing 40 iterations of force layout physics.
-  const adaptedNodes = useMemo(() => {
-    const baseNodes = categoryFilter === 'All'
-      ? nodes
-      : nodes.filter(n => n.category === categoryFilter || n.isHub);
-
-    return adaptNodesToViewport(baseNodes, viewport.width, viewport.height);
-  }, [nodes, categoryFilter, viewport]);
-
-  const filteredNodes = useMemo(() => {
-    return adaptedNodes.map(node => {
-      const manual = manualPositions[node.id];
-      if (manual) {
-        const labelSafetyMarginX = 35;
-        const minX = Math.max(viewport.padding, labelSafetyMarginX) + node.size;
-        const maxX = viewport.width - Math.max(viewport.padding, labelSafetyMarginX) - node.size;
-        const minY = viewport.padding + node.size;
-        const maxY = viewport.height - viewport.padding - node.size - 40; // leave 40px for labels at bottom
-
-        return {
-          ...node,
-          x: Math.max(minX, Math.min(maxX, manual.x)),
-          y: Math.max(minY, Math.min(maxY, manual.y))
-        };
-      }
-      return node;
-    });
-  }, [adaptedNodes, manualPositions, viewport]);
-
-  const filteredNodesMap = useMemo(() => {
-    return new Map<string, NodeType>(filteredNodes.map(node => [node.id, node]));
-  }, [filteredNodes]);
-
-  const filteredConnections = useMemo(() => {
-    const filteredNodeIds = new Set(filteredNodes.map(n => n.id));
-    return connections.filter(c => filteredNodeIds.has(c.source) && filteredNodeIds.has(c.target));
-  }, [connections, filteredNodes]);
-
-  const selectedNodeData = useMemo(() => {
-    return nodes.filter(n => selectedNodes.has(n.id));
-  }, [nodes, selectedNodes]);
 
   if (loading && nodes.length === 0) {
     return <LoadingSpinner />;
