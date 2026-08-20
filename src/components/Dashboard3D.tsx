@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { Eye, EyeOff, Layers, RefreshCw, Compass } from 'lucide-react';
+import { Eye, EyeOff, Layers, RefreshCw, Compass, ChevronDown, ChevronUp } from 'lucide-react';
 import { Node as NodeType, TooltipData, AnimationSettings } from '../types';
 import { useRealTimeData } from '../hooks/useRealTimeData';
 import { Header } from './Header';
@@ -42,6 +42,8 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
   const [activeChartNode, setActiveChartNode] = useState<NodeType | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
+  const [isFilterCollapsed, setIsFilterCollapsed] = useState<boolean>(true);
+  const [isToolsCollapsed, setIsToolsCollapsed] = useState<boolean>(true);
 
   // Anatomy features states
   const [isIsolated, setIsIsolated] = useState<boolean>(false);
@@ -701,59 +703,69 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
 
         {/* Anatomy Inspired Floating Interactive Tools */}
         <div className="absolute top-4 left-4 z-20 flex flex-col gap-2">
-          {/* Instructions */}
-          <div className="bg-slate-900 bg-opacity-90 backdrop-blur-md border border-slate-800 rounded-xl p-3 max-w-[200px] shadow-xl">
-            <p className="text-white text-[11px] font-bold mb-2 flex items-center gap-1">
-              <Compass size={13} className="text-blue-400" />
-              3D VIEWPORT TOOLS
-            </p>
-            <div className="space-y-1 text-gray-400 text-[10px] font-medium leading-relaxed">
-              <p>• Rotate: Left-click + Drag</p>
-              <p>• Zoom: Scroll / Zoom button</p>
-              <p>• Pan: Right-click + Drag</p>
-              <p>• Click node labels to fly & focus</p>
+          <div className="bg-slate-900 bg-opacity-90 backdrop-blur-md border border-slate-800 rounded-xl overflow-hidden shadow-xl max-w-[220px]">
+            <div
+              className="flex items-center justify-between p-2.5 cursor-pointer hover:bg-slate-800/50 transition-colors select-none"
+              onClick={() => setIsToolsCollapsed(!isToolsCollapsed)}
+            >
+              <span className="text-white text-[11px] font-bold flex items-center gap-1">
+                <Compass size={13} className="text-blue-400" />
+                3D VIEWPORT TOOLS
+              </span>
+              <span className="text-gray-400">
+                {isToolsCollapsed ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
+              </span>
             </div>
-          </div>
+            {!isToolsCollapsed && (
+              <div className="p-3 border-t border-slate-800/80 space-y-3">
+                <div className="space-y-1 text-gray-400 text-[10px] font-medium leading-relaxed">
+                  <p>• Rotate: Left-click + Drag</p>
+                  <p>• Zoom: Scroll / Zoom button</p>
+                  <p>• Pan: Right-click + Drag</p>
+                  <p>• Click node labels to fly & focus</p>
+                </div>
+                {/* Quick Action Button Drawer */}
+                <div className="flex gap-1.5 pt-1 border-t border-slate-800">
+                  {/* Isolate Toggle */}
+                  <button
+                    onClick={() => setIsIsolated(!isIsolated)}
+                    title={isIsolated ? "Show All Nodes" : "Isolate Selected/Hovered Cluster"}
+                    className={`p-1.5 rounded-lg transition-all flex items-center gap-1 text-[10px] font-medium ${
+                      isIsolated
+                        ? 'bg-blue-600 text-white shadow-lg'
+                        : 'text-gray-400 hover:text-gray-200 hover:bg-slate-800'
+                    }`}
+                  >
+                    {isIsolated ? <EyeOff size={13} /> : <Eye size={13} />}
+                    <span>Isolate</span>
+                  </button>
 
-          {/* Quick Action Button Drawer */}
-          <div className="flex gap-1.5 bg-slate-900 bg-opacity-90 backdrop-blur-md border border-slate-800 rounded-xl p-1.5 shadow-xl">
-            {/* Isolate Toggle */}
-            <button
-              onClick={() => setIsIsolated(!isIsolated)}
-              title={isIsolated ? "Show All Nodes" : "Isolate Selected/Hovered Cluster"}
-              className={`p-2 rounded-lg transition-all flex items-center gap-1.5 text-xs font-medium ${
-                isIsolated
-                  ? 'bg-blue-600 text-white shadow-lg'
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-slate-800'
-              }`}
-            >
-              {isIsolated ? <EyeOff size={15} /> : <Eye size={15} />}
-              <span>Isolate</span>
-            </button>
+                  {/* Wireframe Structure Toggle */}
+                  <button
+                    onClick={() => setIsStructure(!isStructure)}
+                    title={isStructure ? "Show Solid Nodes" : "Show Mesh Wireframes"}
+                    className={`p-1.5 rounded-lg transition-all flex items-center gap-1 text-[10px] font-medium ${
+                      isStructure
+                        ? 'bg-purple-600 text-white shadow-lg'
+                        : 'text-gray-400 hover:text-gray-200 hover:bg-slate-800'
+                    }`}
+                  >
+                    <Layers size={13} />
+                    <span>Structure</span>
+                  </button>
 
-            {/* Wireframe Structure Toggle */}
-            <button
-              onClick={() => setIsStructure(!isStructure)}
-              title={isStructure ? "Show Solid Nodes" : "Show Mesh Wireframes"}
-              className={`p-2 rounded-lg transition-all flex items-center gap-1.5 text-xs font-medium ${
-                isStructure
-                  ? 'bg-purple-600 text-white shadow-lg'
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-slate-800'
-              }`}
-            >
-              <Layers size={15} />
-              <span>Structure</span>
-            </button>
-
-            {/* Reset Camera Focus */}
-            <button
-              onClick={() => focusOnNode(null)}
-              title="Reset Viewport Camera"
-              className="p-2 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-slate-800 transition-all flex items-center gap-1.5 text-xs font-medium"
-            >
-              <RefreshCw size={15} />
-              <span>Reset</span>
-            </button>
+                  {/* Reset Camera Focus */}
+                  <button
+                    onClick={() => focusOnNode(null)}
+                    title="Reset Viewport Camera"
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-slate-800 transition-all flex items-center gap-1 text-[10px] font-medium"
+                  >
+                    <RefreshCw size={13} />
+                    <span>Reset</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -769,20 +781,33 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
             className="bg-gray-900 bg-opacity-90 backdrop-blur-sm border border-gray-700 rounded-lg p-3 w-full"
           />
           {/* Category Filter positioned vertically below the Legend panel */}
-          <div className="flex items-center gap-1 sm:gap-2 bg-gray-900 bg-opacity-95 backdrop-blur-sm p-1.5 rounded-lg border border-gray-700 overflow-x-auto max-w-full">
-            {categories.map(cat => (
-              <button
-                key={cat}
-                onClick={() => setCategoryFilter(cat)}
-                className={`px-2.5 py-1 text-[10px] sm:text-xs rounded-md transition-all whitespace-nowrap font-medium ${
-                  categoryFilter === cat
-                    ? 'bg-blue-600 text-white shadow-lg'
-                    : 'text-gray-400 hover:text-gray-200 hover:bg-slate-800'
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
+          <div className="flex flex-col bg-gray-900 bg-opacity-95 backdrop-blur-sm rounded-lg border border-gray-700 overflow-hidden max-w-full">
+            <div
+              className="flex items-center justify-between px-3 py-1.5 cursor-pointer hover:bg-slate-800/50 transition-colors select-none"
+              onClick={() => setIsFilterCollapsed(!isFilterCollapsed)}
+            >
+              <span className="text-white text-[10px] font-bold uppercase tracking-wider">Categories</span>
+              <span className="text-gray-400">
+                {isFilterCollapsed ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+              </span>
+            </div>
+            {!isFilterCollapsed && (
+              <div className="flex items-center gap-1 sm:gap-2 p-1.5 border-t border-gray-800 overflow-x-auto max-w-full">
+                {categories.map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setCategoryFilter(cat)}
+                    className={`px-2.5 py-1 text-[10px] sm:text-xs rounded-md transition-all whitespace-nowrap font-medium ${
+                      categoryFilter === cat
+                        ? 'bg-blue-600 text-white shadow-lg'
+                        : 'text-gray-400 hover:text-gray-200 hover:bg-slate-800'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

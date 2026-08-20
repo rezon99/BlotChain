@@ -12,7 +12,7 @@ export const LiveStatus: React.FC<LiveStatusProps> = React.memo(({
   connectionCount,
   className
 }) => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
 
   const toggleStatus = () => {
     setIsCollapsed((prev) => !prev);
