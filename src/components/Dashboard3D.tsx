@@ -52,18 +52,10 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
   const [ambientColor, setAmbientColor] = useState<string>('#3b82f6'); // default blue glow
 
-  // Screen projected labels state (Imperative HTML projection)
-  const [projectedLabels, setProjectedLabels] = useState<Array<{
-    id: string;
-    name: string;
-    category: string;
-    color: string;
-    isHub: boolean;
-    x: number;
-    y: number;
-    visible: boolean;
-    opacity: number;
-  }>>([]);
+  // Ref map for direct DOM manipulation of projected 3D labels (avoids 60 FPS React re-renders)
+  const labelRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const hoveredNodeIdRef = useRef<string | null>(null);
+  const focusedNodeIdRef = useRef<string | null>(null);
 
   const [animationSettings, setAnimationSettings] = useState<AnimationSettings>(() => {
     const defaultSettings: AnimationSettings = {
@@ -198,6 +190,7 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
 
   // Focus on a particular node using cinematic camera lerp
   const focusOnNode = useCallback((nodeId: string | null) => {
+    focusedNodeIdRef.current = nodeId;
     setFocusedNodeId(nodeId);
     if (!nodeId) {
       // Reset position to default view
@@ -406,6 +399,7 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
         const nodeData = intersectedGroup.userData.nodeData as NodeType;
         if (localHoveredId !== nodeData.id) {
           localHoveredId = nodeData.id;
+          hoveredNodeIdRef.current = nodeData.id;
           setHoveredNodeId(nodeData.id);
 
           setTooltip({
@@ -425,6 +419,7 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
       } else {
         if (localHoveredId !== null) {
           localHoveredId = null;
+          hoveredNodeIdRef.current = null;
           setHoveredNodeId(null);
           setTooltip(prev => ({ ...prev, visible: false }));
           document.body.style.cursor = 'default';
@@ -498,8 +493,6 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
       }
 
       // 1. Update Node Spheres (LOD, Breathing, Isolate, Structure)
-      const labelUpdates: typeof projectedLabels = [];
-
       nodeMeshes.forEach(group => {
         const node = group.userData.nodeData as Node3D;
         const sphereMesh = group.children[0] as THREE.Mesh;
@@ -532,18 +525,21 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
         const screenX = (tempV.x * widthHalf) + widthHalf;
         const screenY = -(tempV.y * heightHalf) + heightHalf;
 
-        // Build list of labels to project into DOM overlay
-        labelUpdates.push({
-          id: node.id,
-          name: node.name,
-          category: node.category,
-          color: node.color,
-          isHub: !!node.isHub,
-          x: screenX,
-          y: screenY,
-          visible: !isBehindCamera && !isFar,
-          opacity: targetOpacity
-        });
+        // Directly manipulate label DOM element styles to eliminate 60 FPS React re-renders
+        const labelEl = labelRefs.current.get(node.id);
+        if (labelEl) {
+          const visible = !isBehindCamera && !isFar;
+          if (visible) {
+            const isHoveredOrFocused = hoveredNodeIdRef.current === node.id || focusedNodeIdRef.current === node.id;
+            const scaleVal = isHoveredOrFocused ? 1.05 : 0.85;
+            labelEl.style.display = 'block';
+            labelEl.style.transform = `translate3d(${screenX}px, ${screenY - 25}px, 0) scale(${scaleVal})`;
+            labelEl.style.opacity = `${targetOpacity}`;
+            labelEl.style.zIndex = isHoveredOrFocused ? '50' : '10';
+          } else {
+            labelEl.style.display = 'none';
+          }
+        }
 
         // Glowing Emissive breathing
         const baseEmissive = selectedNodes.has(node.id) ? 1.0 : (node.isHub ? 0.35 : 0.15);
@@ -556,9 +552,6 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
           sphereMat.emissiveIntensity = baseEmissive * emissiveDimFactor;
         }
       });
-
-      // Update projected labels in React state
-      setProjectedLabels(labelUpdates);
 
       // 2. Update connection lines and flow indicators
       connectionRefs.forEach(ref => {
@@ -658,36 +651,38 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
 
         {/* Imperative HTML projection labels overlay */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden select-none">
-          {projectedLabels.map(label => {
-            if (!label.visible) return null;
-
-            // Highlight label on hover or search focus
-            const isHovered = hoveredNodeId === label.id;
-            const isFocused = focusedNodeId === label.id;
+          {filteredNodes3D.map(node => {
+            const isHovered = hoveredNodeId === node.id;
+            const isFocused = focusedNodeId === node.id;
 
             return (
               <div
-                key={label.id}
-                className="absolute top-0 left-0 -translate-x-1/2 -translate-y-1/2 pointer-events-auto transition-all duration-300"
+                key={node.id}
+                ref={el => {
+                  if (el) labelRefs.current.set(node.id, el);
+                  else labelRefs.current.delete(node.id);
+                }}
+                className="absolute top-0 left-0 -translate-x-1/2 -translate-y-1/2 pointer-events-auto transition-transform duration-300"
                 style={{
-                  transform: `translate3d(${label.x}px, ${label.y - 25}px, 0) scale(${isHovered || isFocused ? 1.05 : 0.85})`,
-                  opacity: label.opacity,
+                  display: 'none',
+                  transform: `translate3d(0px, 0px, 0) scale(${isHovered || isFocused ? 1.05 : 0.85})`,
+                  opacity: 0,
                   zIndex: isHovered || isFocused ? 50 : 10
                 }}
               >
                 <div
-                  onClick={() => focusOnNode(label.id)}
+                  onClick={() => focusOnNode(node.id)}
                   className="bg-slate-900 bg-opacity-80 backdrop-blur-md border border-slate-700/80 px-3 py-1 rounded-lg flex flex-col items-center shadow-lg hover:border-blue-500 cursor-pointer select-none"
                   style={{
-                    boxShadow: isHovered || isFocused ? `0 0 15px ${label.color}44` : 'none',
-                    borderColor: isHovered || isFocused ? label.color : 'rgba(71, 85, 105, 0.8)'
+                    boxShadow: isHovered || isFocused ? `0 0 15px ${node.color}44` : 'none',
+                    borderColor: isHovered || isFocused ? node.color : 'rgba(71, 85, 105, 0.8)'
                   }}
                 >
                   <span className="text-white text-[11px] font-bold tracking-wide whitespace-nowrap">
-                    {label.name}
+                    {node.name}
                   </span>
                   <span className="text-gray-400 text-[8px] uppercase tracking-wider font-semibold">
-                    {label.isHub ? 'Primary Hub' : label.category}
+                    {node.isHub ? 'Primary Hub' : node.category}
                   </span>
                 </div>
               </div>
