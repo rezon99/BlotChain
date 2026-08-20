@@ -25,4 +25,16 @@ describe('captureSnapshot', () => {
       /Failed to capture dashboard snapshot for URL/
     );
   }, 30000);
+
+  it('should reject invalid URL strings and dangerous schemes', async () => {
+    await expect(captureSnapshot('javascript:alert(1)')).rejects.toThrow(
+      /Unsupported scheme "javascript:"/
+    );
+    await expect(captureSnapshot('data:text/html,<h1>test</h1>')).rejects.toThrow(
+      /Unsupported scheme "data:"/
+    );
+    await expect(captureSnapshot('not_a_valid_url')).rejects.toThrow(
+      /Invalid URL format/
+    );
+  });
 });

@@ -9,6 +9,21 @@ export async function captureSnapshot(url?: string): Promise<SnapshotResult> {
   const targetUrl = url || process.env.DASHBOARD_SNAPSHOT_URL || 'http://localhost:5173?snapshotMode=1';
   const timestamp = new Date().toISOString();
 
+  // Security: Validate URL format and restrict allowed schemes (http, https, file) to mitigate SSRF / protocol injection
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(targetUrl);
+  } catch {
+    throw new Error(`Failed to capture dashboard snapshot for URL "${targetUrl}": Invalid URL format`);
+  }
+
+  const allowedProtocols = ['http:', 'https:', 'file:'];
+  if (!allowedProtocols.includes(parsedUrl.protocol)) {
+    throw new Error(
+      `Failed to capture dashboard snapshot for URL "${targetUrl}": Unsupported scheme "${parsedUrl.protocol}"`
+    );
+  }
+
   let browser;
   try {
     browser = await chromium.launch({
