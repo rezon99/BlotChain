@@ -42,6 +42,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const saved = localStorage.getItem('blotchain_positions');
     return saved ? JSON.parse(saved) : {};
   });
+  const manualPositionsRef = useRef(manualPositions);
+  manualPositionsRef.current = manualPositions;
 
   const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -213,9 +215,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
     const coords = getSVGCoords(e, svg);
 
-    // Find node size for accurate boundary clamping during drag
-    const node = nodes.find(n => n.id === draggingNodeId);
-    const nodeSize = node ? node.size : 20;
+    // O(1) node lookup from filteredNodesMap instead of O(N) nodes.find
+    const nodeSize = filteredNodesMap.get(draggingNodeId)?.size ?? 20;
 
     const labelSafetyMarginX = 35;
     const minX = Math.max(viewport.padding, labelSafetyMarginX) + nodeSize;
@@ -231,19 +232,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
       y: clampedY
     };
 
-    setManualPositions(prev => {
-      const updated = {
-        ...prev,
-        [draggingNodeId]: newPos
-      };
-      localStorage.setItem('blotchain_positions', JSON.stringify(updated));
-      return updated;
-    });
-  }, [draggingNodeId, dragOffset, nodes, viewport]);
+    setManualPositions(prev => ({
+      ...prev,
+      [draggingNodeId]: newPos
+    }));
+  }, [draggingNodeId, dragOffset, filteredNodesMap, viewport]);
 
   const handleMouseUp = useCallback(() => {
-    setDraggingNodeId(null);
-  }, []);
+    if (draggingNodeId) {
+      // Persist manual node positions to localStorage on drag end to eliminate storage I/O thrashing during mousemove
+      localStorage.setItem('blotchain_positions', JSON.stringify(manualPositionsRef.current));
+      setDraggingNodeId(null);
+    }
+  }, [draggingNodeId]);
 
   const resetLayout = useCallback(() => {
     setManualPositions({});
