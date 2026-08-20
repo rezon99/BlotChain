@@ -89,6 +89,7 @@ export const ComparisonPanel: React.FC<ComparisonPanelProps> = ({ selectedNodes,
         </h3>
         <button
           onClick={onClear}
+          aria-label="Close comparison"
           className="text-gray-400 hover:text-white transition-colors p-1"
         >
           <X size={18} />
