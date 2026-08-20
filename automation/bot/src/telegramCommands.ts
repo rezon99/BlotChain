@@ -50,6 +50,12 @@ export function setupTelegramCommands(bot: TelegramBot): void {
           return;
         }
 
+        // Security check: Validate that tokenId is a non-negative integer to prevent unexpected contract inputs or injection
+        if (!/^\d+$/.test(tokenId)) {
+          await bot.sendMessage(msg.chat.id, '❌ Invalid tokenId. Must be a valid non-negative integer.');
+          return;
+        }
+
         await bot.sendMessage(msg.chat.id, `⏳ Attempting to burn token ${tokenId}...`);
         const res = await burnSnapshotToken(tokenId);
         if (res.success) {
