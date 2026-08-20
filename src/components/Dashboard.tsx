@@ -39,8 +39,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [isFilterCollapsed, setIsFilterCollapsed] = useState(false);
 
   const [manualPositions, setManualPositions] = useState<Record<string, { x: number, y: number }>>(() => {
-    const saved = localStorage.getItem('blotchain_positions');
-    return saved ? JSON.parse(saved) : {};
+    try {
+      const saved = localStorage.getItem('blotchain_positions');
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      // Handle untrusted/corrupted JSON gracefully to prevent application crash
+      console.warn('Failed to parse blotchain_positions from localStorage:', e);
+      localStorage.removeItem('blotchain_positions');
+      return {};
+    }
   });
   const manualPositionsRef = useRef(manualPositions);
   manualPositionsRef.current = manualPositions;
@@ -49,12 +56,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 
   const [animationSettings, setAnimationSettings] = useState<AnimationSettings>(() => {
-    const saved = localStorage.getItem('blotchain_animation_settings');
-    return saved ? JSON.parse(saved) : {
+    const defaultSettings: AnimationSettings = {
       enabled: true,
       particleSpeed: 1,
       breathingIntensity: 1
     };
+    try {
+      const saved = localStorage.getItem('blotchain_animation_settings');
+      return saved ? JSON.parse(saved) : defaultSettings;
+    } catch (e) {
+      // Handle untrusted/corrupted JSON gracefully to prevent application crash
+      console.warn('Failed to parse blotchain_animation_settings from localStorage:', e);
+      localStorage.removeItem('blotchain_animation_settings');
+      return defaultSettings;
+    }
   });
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
