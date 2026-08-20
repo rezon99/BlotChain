@@ -37,12 +37,30 @@ export const ChartModal: React.FC<ChartModalProps> = ({ node, onClose, onAddToCo
     fetchHistory();
   }, [node, timeframe]);
 
+  useEffect(() => {
+    if (!node) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [node, onClose]);
+
   if (!node) return null;
 
   const isPositive = node.change24h >= 0;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="chart-modal-title"
+    >
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
@@ -59,7 +77,7 @@ export const ChartModal: React.FC<ChartModalProps> = ({ node, onClose, onAddToCo
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-2xl font-bold text-white">{node.name}</h2>
+                <h2 id="chart-modal-title" className="text-2xl font-bold text-white">{node.name}</h2>
                 <span className="px-2 py-0.5 bg-slate-800 text-slate-400 text-xs rounded uppercase tracking-wider font-bold">
                   {node.category}
                 </span>
@@ -95,7 +113,7 @@ export const ChartModal: React.FC<ChartModalProps> = ({ node, onClose, onAddToCo
               <h3 className="text-lg font-bold text-white">Price History</h3>
             </div>
 
-            <div className="flex bg-slate-800 p-1 rounded-lg border border-slate-700">
+            <div className="flex bg-slate-800 p-1 rounded-lg border border-slate-700" role="group" aria-label="Timeframe selection">
               {[
                 { label: '24H', value: 1 },
                 { label: '7D', value: 7 },
@@ -104,6 +122,7 @@ export const ChartModal: React.FC<ChartModalProps> = ({ node, onClose, onAddToCo
                 <button
                   key={tf.value}
                   onClick={() => setTimeframe(tf.value)}
+                  aria-pressed={timeframe === tf.value}
                   className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${
                     timeframe === tf.value
                       ? 'bg-blue-600 text-white shadow-lg'
