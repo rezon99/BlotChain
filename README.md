@@ -1,448 +1,122 @@
-# BlotChain - Визуализация Криптовалютной Ликвидности в Реальном Времени
+# BlotChain - Real-Time Cryptocurrency Liquidity & DeFi Visualization
 
-## 📋 Описание проекта
+## 📋 Project Description
 
-**BlotChain** — это современное веб-приложение для интерактивной визуализации взаимосвязей криптовалютных активов и потоков ликвидности в реальном времени. Проект использует данные с публичного API **CoinGecko** для отслеживания топ криптовалютных активов и крупнейших криптовалютных бирж.
-
-Приложение визуализирует криптовалютные активы в виде сетевой диаграммы, где:
-- 🔵 **Узлы (Nodes)** — криптовалютные активы и биржи
-- 📊 **Связи (Connections)** — потоки ликвидности между активами
-- ✨ **Частицы** — анимированные элементы, показывающие направление потока
-
-## 🎯 Основные возможности
-
-### 1. **Интерактивная сетевая визуализация**
-- Визуализация криптовалютных активов в виде интерактивных узлов на SVG холсте
-- Динамические связи между активами с учётом потоков ликвидности
-- Плавные анимации и переходы для комфортного восприятия данных
-
-### 2. **Данные в реальном времени**
-- Автоматическое обновление данных каждые 30 секунд (согласно rate limit CoinGecko)
-- Синхронизация с API CoinGecko для получения актуальной информации о:
-  - Текущей стоимости активов
-  - Рыночной капитализации
-  - Изменениях цены за 24 часа и 7 дней
-  - Данных о торговых объёмах
-  - Информации о биржах
-
-### 3. **Визуальное кодирование информации**
-- **Цветовая кодировка узлов:**
-  - 🟢 **Зелёный** — актив растёт более чем на 5%
-  - 🔴 **Красный** — актив падает более чем на 5%
-  - 🟡 **Жёлтый** — высокая волатильность (±20%)
-  - ⚫ **Серый** — стабильный актив (±5%)
-
-- **Цветовая кодировка связей:**
-  - 🔵 **Синий** — входящий поток ликвидности
-  - 🟠 **Оранжевый** — исходящий поток ликвидности
-
-### 4. **Интерактивные элементы**
-- **Наведение курсора:** Появляется всплывающее окно (Tooltip) с подробной информацией об активе:
-  - Названием и категорией актива
-  - Текущей ликвидностью
-  - Изменением цены за 24h и 7d
-  - Статусом волатильности
-
-- **Клик по узлу:** Выбор актива с подсветкой всех связанных активов
-- **Кнопка "Clear Selection":** Отмена выбора активов
-
-### 5. **Настройки Dashboard**
-- **Интервал обновления:** Выбор частоты запросов к API (15с, 30с, 60с)
-- **Управление анимацией:** Возможность включить/выключить анимации (Performance Mode)
-- **Тонкая настройка:** Регулировка интенсивности "дыхания" узлов и скорости движения частиц
-
-### 6. **Сравнение активов**
-- **Режим сравнения:** При выборе двух активов автоматически открывается панель сравнения
-- **Метрики сравнения:** Прямое сопоставление текущей цены, капитализации и динамики курса (24ч и 7д)
-- **Визуальная разница:** Расчет и отображение процентной разницы между показателями активов
-
-### 7. **Анимационные эффекты**
-- **Дыхание узлов:** Плавная пульсация размера каждого узла
-- **Движущиеся частицы:** Анимированные точки, перемещающиеся вдоль связей (показывают направление потока)
-- **Каскадный эффект:** Волновые кольца при взаимодействии (готово к реализации)
-- **Пульсирующие связи:** Мягкое пульсирование прозрачности связей
-
-### 8. **Информационный интерфейс**
-- **Заголовок:** Название приложения и время последнего обновления
-- **Легенда:** Объяснение цветовой кодировки и типов связей
-- **Индикатор статуса:** Показывает статус подключения и количество активов
-
-## 🏗️ Архитектура проекта
-
-```
-src/
-├── components/              # React компоненты интерфейса
-│   ├── Dashboard.tsx       # Основной компонент (контейнер)
-│   ├── Node.tsx            # Компонент узла (актива)
-│   ├── Connection.tsx      # Компонент связи между активами
-│   ├── Tooltip.tsx         # Всплывающее окно информации
-│   ├── CascadeEffect.tsx   # Визуальный эффект волны
-│   ├── LoadingSpinner.tsx  # Индикатор загрузки
-│   ├── ErrorDisplay.tsx    # Отображение ошибок
-│   ├── SettingsPanel.tsx   # Панель настроек (интервал, анимации)
-│   └── ComparisonPanel.tsx # Панель сравнения активов
-├── hooks/                  # React Hooks для логики
-│   └── useRealTimeData.ts  # Хук для получения данных в реальном времени
-├── services/               # Сервисы для работы с API
-│   └── coinGeckoApi.ts    # Сервис взаимодействия с CoinGecko API
-├── types/                  # TypeScript типы
-│   └── index.ts           # Определение типов данных
-├── utils/                  # Вспомогательные функции
-│   ├── dataTransformer.ts # Трансформация данных API в формат компонентов
-│   └── dataSimulator.ts   # Генерация и обновление частиц
-├── App.tsx                # Корневой компонент
-├── main.tsx               # Точка входа приложения
-└── index.css              # Глобальные стили
-```
-
-## 🔧 Основные компоненты
-
-### **Dashboard.tsx** - Главный компонент
-Управляет всей логикой приложения:
-- Получает данные через хук `useRealTimeData()`
-- Управляет состоянием выбранных активов
-- Отслеживает наведение мыши для показа Tooltip
-- Координирует отрисовку узлов и связей в SVG
-- Отображает UI элементы (легенда, статус)
-
-**Ключевые функции:**
-- `handleNodeSelect()` — выбор/отмена выбора узла
-- `handleNodeHover()` — показ информации при наведении
-- `getConnectedNodeIds()` — получение списка связанных активов
-- `clearSelection()` — отмена всех выборов
-
-### **Node.tsx** - Компонент узла
-Отрисовывает отдельный актив на диаграмме:
-- SVG круги с цветовой кодировкой
-- Текстовые метки (название, категория)
-- Интерактивные эффекты (свечение при выборе, дыхание)
-- События клика и наведения мыши
-
-**Анимационные эффекты:**
-- Дыхание (пульсация размера) — амплитуда ~3%, частота 2 сек
-- Пульс при сильной волатильности — увеличение размера на 10% на 300ms
-
-### **Connection.tsx** - Компонент связи
-Отрисовывает линии между активами с учётом потоков ликвидности:
-- Кривые Безье для красивых переходов
-- Толщина линии зависит от величины потока (максимум 12px)
-- Градиент прозрачности вдоль линии
-- Движущиеся частицы (белые точки)
-- Пульсирующий эффект
-
-**Данные связи:**
-- `source` — ID активу-источника
-- `target` — ID активу-получателя
-- `flow` — величина потока ликвидности
-- `direction` — 'in' (входящий) или 'out' (исходящий)
-- `particles` — массив частиц для анимации
-
-### **Tooltip.tsx** - Информационный окно
-Всплывающее окно с подробной информацией об активе:
-```
-┌─────────────────────────────┐
-│ Bitcoin (BTC)               │
-│ cryptocurrency              │
-│                             │
-│ Liquidity: $24.5B          │
-│ 24h Change: +5.25%         │
-│ 7d Change: +12.80%         │
-│                             │
-│ ● Growing                  │
-└─────────────────────────────┘
-```
-
-Форматирует большие числа (B, M, K) и цветообозначает изменения (зелёный/красный).
-
-### **useRealTimeData.ts** - Хук для данных
-Управляет получением и обновлением данных в реальном времени:
-
-```typescript
-const { nodes, connections, loading, error, lastUpdate, refetch } = useRealTimeData();
-```
-
-**Логика обновления:**
-1. **Первоначальная загрузка** — при монтировании компонента
-2. **Обновление данных** — каждые 30 сек (соответствует rate limit CoinGecko)
-3. **Обновление частиц** — каждые 100ms (для гладкой анимации)
-
-**API вызовы:**
-```typescript
-// Параллельно получаем данные топ-15 активов и топ-5 бирж
-const [coinsData, exchangesData] = await Promise.all([
-  coinGeckoApi.getTopCoins(15),
-  coinGeckoApi.getExchanges(5)
-]);
-```
-
-### **coinGeckoApi.ts** - Сервис API
-Класс для взаимодействия с CoinGecko API:
-
-```typescript
-// Получить топ N криптовалют по рыночной капитализации
-coinGeckoApi.getTopCoins(15)
-
-// Получить информацию о биржах
-coinGeckoApi.getExchanges(5)
-
-// Получить глобальные данные рынка
-coinGeckoApi.getGlobalMarketData()
-
-// Получить историческую информацию актива за N дней
-coinGeckoApi.getCoinHistory('bitcoin', 7)
-```
-
-**Данные по каждому активу:**
-- `current_price` — текущая цена в USD
-- `market_cap` — рыночная капитализация
-- `price_change_percentage_24h` — изменение за 24h
-- `price_change_percentage_7d_in_currency` — изменение за 7d
-- `total_volume` — объём торговли за 24h
-- `circulating_supply` — количество в обращении
-
-## 📊 Структура данных
-
-### **Node** — Узел (Актив)
-```typescript
-interface Node {
-  id: string;              // Уникальный идентификатор (e.g., 'bitcoin')
-  name: string;            // Название (e.g., 'Bitcoin')
-  category: string;        // Категория (e.g., 'Layer 1')
-  liquidity: number;       // Текущая ликвидность в USD
-  change24h: number;       // Изменение цены за 24h в %
-  change7d: number;        // Изменение цены за 7d в %
-  x: number;               // Позиция X на диаграмме (0-800)
-  y: number;               // Позиция Y на диаграмме (0-600)
-  size: number;            // Размер кружка в пиксельях
-  color: string;           // Цвет узла (HEX, зависит от волатильности)
-  isSelected: boolean;     // Выбран ли узел
-  lastUpdated: number;     // Timestamp последнего обновления
-}
-```
-
-### **Connection** — Связь между активами
-```typescript
-interface Connection {
-  id: string;              // Уникальный идентификатор
-  source: string;          // ID активу-источника
-  target: string;          // ID активу-назначения
-  flow: number;            // Величина потока ликвидности
-  direction: 'in' | 'out'; // Направление потока
-  particles: Particle[];   // Массив частиц для анимации
-}
-```
-
-### **Particle** — Частица для анимации
-```typescript
-interface Particle {
-  id: string;              // Уникальный идентификатор
-  progress: number;        // Прогресс движения (0-1)
-  speed: number;           // Скорость движения
-  size: number;            // Размер частицы
-}
-```
-
-## 🛠️ Используемые технологии
-
-### **Frontend Framework**
-- **React 18.3.1** — Фреймворк для создания компонентов UI
-- **TypeScript 5.5.3** — Типизированное расширение JavaScript
-
-### **Визуализация и анимация**
-- **SVG** — Векторная графика для диаграмм и анимаций
-- **CSS** — Стили и трансформации
-
-### **Стилизация**
-- **Tailwind CSS 3.4.1** — Утилит-фреймворк для быстрого стилизирования
-- **PostCSS 8.4.35** — Инструмент для трансформации CSS
-
-### **Сборка и разработка**
-- **Vite 5.4.2** — Современный сборщик модулей с быстрой горячей перезагрузкой
-- **@vitejs/plugin-react 4.3.1** — Плагин для React в Vite
-
-### **Code Quality**
-- **ESLint 9.9.1** — Анализатор кода для поиска ошибок
-- **TypeScript ESLint 8.3.0** — Плагин ESLint для TypeScript
-
-### **Icons**
-- **Lucide React 0.344.0** — Библиотека SVG иконок
-
-## 📦 Установка и запуск
-
-### Требования
-- **Node.js** версии 16+ 
-- **npm** или **yarn**
-
-### Шаги установки
-
-1. **Клонировать репозиторий**
-```bash
-git clone https://github.com/rezon99/BlotChain.git
-cd BlotChain
-```
-
-2. **Установить зависимости**
-```bash
-npm install
-```
-
-3. **Настроить переменные окружения**
-
-Создать файл `.env.local` в корне проекта:
-```env
-VITE_COINGECKO_BASE_URL=https://api.coingecko.com/api/v3
-VITE_COINGECKO_API_KEY=your_api_key_here  # Опционально
-```
-
-Получить API ключ можно на https://www.coingecko.com/en/api
-
-4. **Запустить приложение в режиме разработки**
-```bash
-npm run dev
-```
-
-Приложение откроется на `http://localhost:5173`
-
-### Команды сборки
-
-```bash
-# Разработка с горячей перезагрузкой
-npm run dev
-
-# Сборка для production
-npm run build
-
-# Предпросмотр production сборки
-npm run preview
-
-# Проверка кода ESLint
-npm run lint
-```
-
-## 🔄 Поток данных
-
-```
-CoinGecko API
-    ↓
-coinGeckoApi.ts (getTopCoins, getExchanges)
-    ↓
-useRealTimeData Hook
-    ↓
-dataTransformer.ts (преобразование в Node и Connection)
-    ↓
-Dashboard Component
-    ↓
-┌─────────────────┬──────────────────────┐
-│  Node компоненты  │  Connection компоненты │
-│  (SVG circles)  │  (SVG paths + particles)│
-└─────────────────┴──────────────────────┘
-    ↓
-Интерактивный SVG холст с анимациями
-```
-
-## 🎨 Визуальный дизайн
-
-### Цветовая палитра
-- **Фон:** Тёмный градиент (slate-900 → slate-800 → slate-900)
-- **Сетка:** Полупрозрачная белая сетка (opacity: 0.1)
-- **Текст:** Белый основной, серый вторичный (#9ca3af)
-- **Узлы:** 
-  - Зелёный (#22c55e) — рост
-  - Красный (#ef4444) — падение
-  - Жёлтый (#eab308) — волатильность
-  - Серый (#6b7280) — стабильность
-- **Связи:** Синий (#3b82f6), Оранжевый (#f97316)
-
-### UI элементы
-- **Легенда:** Полупрозрачная панель с backdrop blur
-- **Всплывающее окно:** Темное с полупрозрачностью и blur эффектом
-- **Кнопки:** С hover эффектами и плавными переходами
-
-## 🐛 Обработка ошибок
-
-Приложение корректно обрабатывает следующие случаи:
-
-1. **Ошибки API:**
-   - Если API недоступен, показывается сообщение об ошибке
-   - Используются кэшированные данные если они есть
-   - Кнопка "Retry" для повторной попытки загрузки
-
-2. **Ошибки загрузки:**
-   - Индикатор загрузки (LoadingSpinner) при первоначальной загрузке
-   - Анимированный статус обновления (пульсирующая точка)
-
-3. **Ошибки конфигурации:**
-   - Проверка наличия API ключа и URL
-   - Информативные сообщения об ошибках в консоли
-
-## 📱 Особенности интерфейса
-
-### Адаптивность
-- SVG холст масштабируется под размер окна браузера
-- Минимальная высота 600px для видимости
-- Полноэкранный режим (min-h-screen)
-
-### Производительность
-- Эффективная оптимизация SVG анимаций
-- Throttling обновлений данных (30 сек для API, 100ms для частиц)
-- Кэширование и повторное использование вычислений
-
-### Доступность
-- Семантический HTML
-- Понятные заголовки и метки
-- Контрастные цвета для удобства чтения
-- Информативные всплывающие подсказки
-
-## 🚀 Бэклог и возможные улучшения
-
-### 🛠️ Реализовано (Последнее обновление)
-- ✅ **Настройки Dashboard:** Гибкое управление интервалом обновления и визуальными эффектами.
-- ✅ **Сравнение активов:** Полноценный режим VS для двух выбранных монет.
-- ✅ **Категории:** Фильтрация активов (Layer 1, DeFi, Exchange и др.).
-- ✅ **Аналитика и Графики:** Детальный график истории цены и мини-графики (Sparklines).
-- ✅ **Интерактивность:** Перетаскивание (Drag-and-drop) узлов с сохранением позиций.
-- ✅ **NFT Поддержка:** Отдельный режим для визуализации NFT коллекций.
-
-### 🤖 Telegram Bot & Automation Service
-A long-lived Telegram bot process in `automation/bot/src/telegramBot.ts` supports interactive `/mint`, `/burn`, `/status`, and `/balance` commands in polling mode.
-
-> **Deployment Note:** The interactive Telegram bot requires a long-lived host (e.g., VPS, Railway, Render, Fly.io). Standard GitHub Actions runners are unsuitable for running the polling listener process as they terminate when workflow execution finishes.
-
-### 📋 Планируется (Бэклог)
-1. **Аналитика и Графики:**
-   - Расчет корреляции между выбранными активами.
-
-2. **Масштабируемость:**
-   - Переход на **WebGL (PixiJS/Three.js)** для отрисовки 100+ узлов без потери FPS.
-   - Кластеризация узлов по категориям в автоматическом режиме.
-
-3. **Интерактивность:**
-   - Глобальный поиск по активам.
-
-4. **Функциональность:**
-   - Экспорт текущего состояния графа в PNG или JSON.
-   - Система уведомлений (Alerts) при резком изменении цены (>10%).
-
-## 📄 Лицензия
-
-Этот проект распространяется под лицензией MIT.
-
-## 👤 Автор
-
-**rezon99** - https://github.com/rezon99
-
-## 🙋 Как внести вклад
-
-1. Сделайте Fork репозиория
-2. Создайте ветку для вашей фичи (`git checkout -b feature/AmazingFeature`)
-3. Commit ваши изменения (`git commit -m 'Add some AmazingFeature'`)
-4. Push в ветку (`git push origin feature/AmazingFeature`)
-5. Откройте Pull Request
-
-## 📞 Поддержка
-
-Если у вас есть вопросы или предложения, создайте Issue в репозитории.
+**BlotChain** is a modern web application for interactive, real-time visual exploration of cryptocurrency assets, DEX pools, and liquidity flow networks across 2D SVG, 3D WebGL, and WebXR VR viewports. The application leverages **CoinGecko API** and **GraphQL / The Graph Subgraphs** to render dynamic data topologies.
 
 ---
 
-**Примечание:** Приложение использует публичный API CoinGecko. Для стабильной работы рекомендуется получить API ключ на https://www.coingecko.com/en/api
+## 🔍 Answers to Key Architecture & Integration Questions
+
+### 1. 🌐 CoinGecko API Health & Status Check
+CoinGecko API integration is handled in `src/services/coinGeckoApi.ts` and `src/hooks/useRealTimeData.ts`:
+- **Supported Endpoints:** `/ping`, `/coins/markets`, `/exchanges`, `/global`, `/coins/{id}/market_chart`.
+- **429 Rate Limit Graceful Fallback:** When rate limits are reached (HTTP 429) or network outages occur, the app seamlessly falls back to mock simulation generators (`generateMockNodes` & `generateMockConnections`), ensuring zero UI crashes.
+- **Automated Diagnostic Tool:** You can run real-time API health diagnostics using:
+  ```bash
+  python3 /home/jules/self_created_tools/check_coingecko.py
+  ```
+
+---
+
+### 2. 🔗 How to Add Graph WL (Watchlist Subgraphs) to the Project
+The GraphQL client service is implemented in `src/services/graphApi.ts` for querying **The Graph (Subgraphs)** or custom GraphQL gateways (Goldsky / Decentralized Network).
+
+#### Steps to add a new subgraph to Watchlist (WL):
+1. **Register Subgraph in Watchlist:**
+   Add your target subgraph URL to `DEFAULT_SUBGRAPH_WL` or dynamically call `graphApiService.addWatchlistSubgraph()`:
+   ```typescript
+   import { graphApiService } from './services/graphApi';
+
+   graphApiService.addWatchlistSubgraph({
+     id: 'uniswap-v3-polygon',
+     name: 'Uniswap V3 Polygon Subgraph',
+     endpointUrl: 'https://api.thegraph.com/subgraphs/name/ianlapham/uniswap-v3-polygon',
+     category: 'Uniswap',
+     enabled: true
+   });
+   ```
+
+2. **Query & Map Subgraph Entities:**
+   Fetch liquidity entities (`pools`, `reserves`, `swaps`) via `graphApiService.query()` and transform them into BlotChain `Node` and `Connection` structures:
+   ```typescript
+   const { nodes, connections } = await graphApiService.getDeFiGraphNodesAndConnections();
+   ```
+
+---
+
+### 3. 📊 Online DeFi Data Accessible via GraphQL
+
+Using GraphQL subgraphs (The Graph, Goldsky, Envoy), live on-chain data can be queried across several DeFi sectors:
+
+| DeFi Sector | Subgraphs / Sources | Accessible Live Data |
+|---|---|---|
+| **DEX / AMM Pools** | Uniswap V2/V3, Curve, Balancer, Sushiswap | • Total Value Locked (TVL) per pool & token<br>• 24h trading volume & fee earnings<br>• Live Swap events (tokenIn, tokenOut, amounts, sender)<br>• Concentrated liquidity tick distributions |
+| **Lending / Borrowing** | Aave V3, Compound, Spark Protocol | • Total deposits (`totalATokenSupply`) & variable/stable debt<br>• Supply APY (`liquidityRate`) & Borrow APY (`variableBorrowRate`)<br>• Available liquidity & protocol utilization rates<br>• Real-time liquidation events & health factors |
+| **Yield & Staking** | Lido, RocketPool, Yearn, Convex | • Staking yields & validator performance<br>• Vault TVL & strategy asset allocations<br>• Voting incentives (Gauges & Rewards) |
+| **Cross-Chain / MEV** | Hop, Stargate, Flashbots | • Bridge volumes & cross-chain transfers<br>• Mempool arbitrage events & sandwich attack vectors |
+
+---
+
+### 4. 🎨 3 Proposed Dashboard Types
+
+#### 🌊 Type 1: DeFi Protocol & Liquidity Flow Dashboard
+- **Concept:** Visualizes capital flow vectors between AMMs (Uniswap/Curve) and Lending protocols (Aave/Compound).
+- **Key Elements:**
+  - **Nodes:** AMM pools and Lending reserves.
+  - **Connections:** Particle flow speeds and sizes indicate active swap velocity, flash loans, and liquidity migration.
+  - **Use Case:** Assessing liquidity depth and discovering yield farming routes.
+
+#### 🛡️ Type 2: MEV & Intent Threat Visualization Dashboard
+- **Concept:** Real-time mempool safety monitoring and visualization of MEV attack vectors (sandwiching, frontrunning, slippage exploits).
+- **Key Elements:**
+  - **Nodes:** Real-time user intents and pending transactions.
+  - **Connections:** Risk indicators with pulsing red threat rings.
+  - **Integration:** 1-Click "Proof-of-Protection" NFT minting on Polygon Mainnet.
+  - **Use Case:** Protecting trader execution and auditing intent safety.
+
+#### 🌐 Type 3: Multi-Chain Asset & Portfolio Intelligence Dashboard
+- **Concept:** Multi-chain portfolio aggregation across EVM chains (Ethereum, Polygon, Arbitrum, Optimism, Solana).
+- **Key Elements:**
+  - **Nodes:** User wallet holdings, CEX accounts, and DEX positions.
+  - **Connections:** Bridge transfers and cross-chain routes.
+  - **Watchlist (WL):** Custom asset lists and yield farming metrics.
+  - **Use Case:** Holistically tracking portfolio health, yield APYs, and asset concentration risk.
+
+---
+
+## 🏗️ Architecture Overview
+
+```
+src/
+├── components/              # React UI Components (2D, 3D WebGL, VR)
+│   ├── Dashboard.tsx       # 2D SVG canvas viewport
+│   ├── Dashboard3D.tsx     # 3D WebGL interactive canvas (Three.js)
+│   ├── DashboardVR.tsx     # WebXR VR Space Mode
+│   ├── Node.tsx            # Node component
+│   ├── Connection.tsx      # Connection path component
+│   └── ComparisonPanel.tsx # Side-by-side asset comparison
+├── services/               # API & GraphQL Services
+│   ├── coinGeckoApi.ts    # CoinGecko REST client with mock fallback
+│   ├── graphApi.ts        # GraphQL / The Graph subgraph service
+│   └── mevShieldApi.ts    # MEV threat simulation service
+├── App.tsx                # Main App entrypoint
+└── main.tsx               # Web entrypoint
+```
+
+## 📦 Installation & Setup
+
+```bash
+# Install dependencies
+pnpm install
+
+# Run development server
+pnpm run dev
+
+# Build production bundle
+pnpm run build
+```
+
+## 📄 License
+
+MIT
