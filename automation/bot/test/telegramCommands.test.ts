@@ -145,6 +145,27 @@ describe('Telegram Commands', () => {
         expect.stringContaining('❌ Burn Failed: ERC721IncorrectOwner')
       );
     });
+
+    it('should reject invalid non-numeric or negative tokenId inputs without calling burnSnapshotToken', async () => {
+      const invalidInputs = ['/burn abc', '/burn -1', '/burn 1;DROP'];
+
+      for (const input of invalidInputs) {
+        const msg = {
+          chat: { id: ALLOWED_CHAT_ID },
+          text: input,
+        };
+
+        bot.emit('message', msg);
+        await new Promise((r) => setTimeout(r, 50));
+
+        expect(bot.sendMessage).toHaveBeenLastCalledWith(
+          ALLOWED_CHAT_ID,
+          '❌ Invalid tokenId. Must be a valid non-negative integer.'
+        );
+      }
+
+      expect(mockBurnSnapshotToken).not.toHaveBeenCalled();
+    });
   });
 
   describe('/status command', () => {
