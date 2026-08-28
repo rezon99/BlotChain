@@ -1,0 +1,8 @@
+{
+  "name": "BlotChain",
+  "description": "Real-time cryptocurrency liquidity and DeFi topology visualization across 2D, 3D WebGL, and WebXR VR modes.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
