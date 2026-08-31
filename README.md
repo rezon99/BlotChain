@@ -1,122 +1,119 @@
 # BlotChain - Real-Time Cryptocurrency Liquidity & DeFi Visualization
 
-## 📋 Project Description
+## 📋 Project Overview
 
 **BlotChain** is a modern web application for interactive, real-time visual exploration of cryptocurrency assets, DEX pools, and liquidity flow networks across 2D SVG, 3D WebGL, and WebXR VR viewports. The application leverages **CoinGecko API** and **GraphQL / The Graph Subgraphs** to render dynamic data topologies.
 
----
-
-## 🔍 Answers to Key Architecture & Integration Questions
-
-### 1. 🌐 CoinGecko API Health & Status Check
-CoinGecko API integration is handled in `src/services/coinGeckoApi.ts` and `src/hooks/useRealTimeData.ts`:
-- **Supported Endpoints:** `/ping`, `/coins/markets`, `/exchanges`, `/global`, `/coins/{id}/market_chart`.
-- **429 Rate Limit Graceful Fallback:** When rate limits are reached (HTTP 429) or network outages occur, the app seamlessly falls back to mock simulation generators (`generateMockNodes` & `generateMockConnections`), ensuring zero UI crashes.
-- **Automated Diagnostic Tool:** You can run real-time API health diagnostics using:
-  ```bash
-  python3 /home/jules/self_created_tools/check_coingecko.py
-  ```
+The application visualizes crypto assets as an interactive network graph:
+- 🔵 **Nodes:** Cryptocurrency assets, AMM pools, and exchanges
+- 📊 **Connections:** Liquidity flow vectors between assets
+- ✨ **Particles:** Animated elements showing capital movement direction and volume velocity
 
 ---
 
-### 2. 🔗 How to Add Graph WL (Watchlist Subgraphs) to the Project
-The GraphQL client service is implemented in `src/services/graphApi.ts` for querying **The Graph (Subgraphs)** or custom GraphQL gateways (Goldsky / Decentralized Network).
+## 🎯 Implemented Features
 
-#### Steps to add a new subgraph to Watchlist (WL):
-1. **Register Subgraph in Watchlist:**
-   Add your target subgraph URL to `DEFAULT_SUBGRAPH_WL` or dynamically call `graphApiService.addWatchlistSubgraph()`:
-   ```typescript
-   import { graphApiService } from './services/graphApi';
+### 1. 🌐 **Multi-Viewport Visualizations**
+- **2D SVG Canvas (`Dashboard.tsx`):** High-performance 2D SVG interactive canvas with adaptive force-directed topology and persistent drag node positioning.
+- **3D WebGL Explorer (`Dashboard3D.tsx`):** Immersive Three.js 3D space with orbit controls (`OrbitControls`), glowing node spheres, directional particle flow lines, and LOD distance culling.
+- **WebXR VR Space Mode (`DashboardVR.tsx`):** Virtual reality 360-degree cosmic environment set at eye level (y=1.6) with floating node spheres and interactive flow pipelines.
+- **Decentraland SDK 7 Metaverse Scene (`decentraland-scene/`):** 100% procedural Decentraland ECS7 scene built without external GLB assets, featuring floating platform islands, connection bridges, billboards, and particle flow systems.
 
-   graphApiService.addWatchlistSubgraph({
-     id: 'uniswap-v3-polygon',
-     name: 'Uniswap V3 Polygon Subgraph',
-     endpointUrl: 'https://api.thegraph.com/subgraphs/name/ianlapham/uniswap-v3-polygon',
-     category: 'Uniswap',
-     enabled: true
-   });
-   ```
+### 2. ⚡ **Real-Time Data & Resiliency**
+- **CoinGecko REST API:** Automatic 30-second background polling with built-in HTTP 429 rate limit protection and instant fallback to a realistic local data simulator (`dataSimulator.ts`).
+- **GraphQL / The Graph Service (`graphApi.ts`):** Direct integration with DeFi subgraphs (Uniswap V3, Aave V3, Curve) and Watchlist (WL) configuration for transforming GraphQL entities into graph visual models.
+- **MEV Shield Threat Simulation (`mevShieldApi.ts`):** Real-time mempool MEV risk tracking and 1-click Proof-of-Protection NFT minting on Polygon Mainnet.
 
-2. **Query & Map Subgraph Entities:**
-   Fetch liquidity entities (`pools`, `reserves`, `swaps`) via `graphApiService.query()` and transform them into BlotChain `Node` and `Connection` structures:
-   ```typescript
-   const { nodes, connections } = await graphApiService.getDeFiGraphNodesAndConnections();
-   ```
+### 3. 🎨 **Visual Encoding**
+- **Node Color Dynamics:**
+  - 🟢 **Green:** Price gain (> +5%)
+  - 🔴 **Red:** Price drop (> -5%)
+  - 🟡 **Yellow:** High volatility (±20%)
+  - ⚫ **Gray:** Stable price action (±5%)
 
----
+- **Connection Color Coding:**
+  - 🔵 **Blue:** Incoming liquidity flow
+  - 🟠 **Orange:** Outgoing liquidity flow
 
-### 3. 📊 Online DeFi Data Accessible via GraphQL
-
-Using GraphQL subgraphs (The Graph, Goldsky, Envoy), live on-chain data can be queried across several DeFi sectors:
-
-| DeFi Sector | Subgraphs / Sources | Accessible Live Data |
-|---|---|---|
-| **DEX / AMM Pools** | Uniswap V2/V3, Curve, Balancer, Sushiswap | • Total Value Locked (TVL) per pool & token<br>• 24h trading volume & fee earnings<br>• Live Swap events (tokenIn, tokenOut, amounts, sender)<br>• Concentrated liquidity tick distributions |
-| **Lending / Borrowing** | Aave V3, Compound, Spark Protocol | • Total deposits (`totalATokenSupply`) & variable/stable debt<br>• Supply APY (`liquidityRate`) & Borrow APY (`variableBorrowRate`)<br>• Available liquidity & protocol utilization rates<br>• Real-time liquidation events & health factors |
-| **Yield & Staking** | Lido, RocketPool, Yearn, Convex | • Staking yields & validator performance<br>• Vault TVL & strategy asset allocations<br>• Voting incentives (Gauges & Rewards) |
-| **Cross-Chain / MEV** | Hop, Stargate, Flashbots | • Bridge volumes & cross-chain transfers<br>• Mempool arbitrage events & sandwich attack vectors |
+### 4. 🎛️ **Interactive Interface & Accessibility**
+- **Asset Comparison Panel (VS Mode):** Side-by-side comparative analysis of metrics for two selected assets in `ComparisonPanel.tsx`.
+- **Category Filter:** Quick filtering across Top 10, DEX, CEX, Stablecoins, and Protocols.
+- **Detailed Charts & Sparklines:** Modal price history charts (`ChartModal.tsx`) with timeframe selectors, keyboard navigation (`role="dialog"`), and ARIA attributes.
+- **Snapshot Parameter (`?snapshotMode=1`):** Clean URL query flag designed for automated visual capture tools.
 
 ---
 
-### 4. 🎨 3 Proposed Dashboard Types
-
-#### 🌊 Type 1: DeFi Protocol & Liquidity Flow Dashboard
-- **Concept:** Visualizes capital flow vectors between AMMs (Uniswap/Curve) and Lending protocols (Aave/Compound).
-- **Key Elements:**
-  - **Nodes:** AMM pools and Lending reserves.
-  - **Connections:** Particle flow speeds and sizes indicate active swap velocity, flash loans, and liquidity migration.
-  - **Use Case:** Assessing liquidity depth and discovering yield farming routes.
-
-#### 🛡️ Type 2: MEV & Intent Threat Visualization Dashboard
-- **Concept:** Real-time mempool safety monitoring and visualization of MEV attack vectors (sandwiching, frontrunning, slippage exploits).
-- **Key Elements:**
-  - **Nodes:** Real-time user intents and pending transactions.
-  - **Connections:** Risk indicators with pulsing red threat rings.
-  - **Integration:** 1-Click "Proof-of-Protection" NFT minting on Polygon Mainnet.
-  - **Use Case:** Protecting trader execution and auditing intent safety.
-
-#### 🌐 Type 3: Multi-Chain Asset & Portfolio Intelligence Dashboard
-- **Concept:** Multi-chain portfolio aggregation across EVM chains (Ethereum, Polygon, Arbitrum, Optimism, Solana).
-- **Key Elements:**
-  - **Nodes:** User wallet holdings, CEX accounts, and DEX positions.
-  - **Connections:** Bridge transfers and cross-chain routes.
-  - **Watchlist (WL):** Custom asset lists and yield farming metrics.
-  - **Use Case:** Holistically tracking portfolio health, yield APYs, and asset concentration risk.
-
----
-
-## 🏗️ Architecture Overview
+## 🏗️ Monorepo Architecture
 
 ```
-src/
-├── components/              # React UI Components (2D, 3D WebGL, VR)
-│   ├── Dashboard.tsx       # 2D SVG canvas viewport
-│   ├── Dashboard3D.tsx     # 3D WebGL interactive canvas (Three.js)
-│   ├── DashboardVR.tsx     # WebXR VR Space Mode
-│   ├── Node.tsx            # Node component
-│   ├── Connection.tsx      # Connection path component
-│   └── ComparisonPanel.tsx # Side-by-side asset comparison
-├── services/               # API & GraphQL Services
-│   ├── coinGeckoApi.ts    # CoinGecko REST client with mock fallback
-│   ├── graphApi.ts        # GraphQL / The Graph subgraph service
-│   └── mevShieldApi.ts    # MEV threat simulation service
-├── App.tsx                # Main App entrypoint
-└── main.tsx               # Web entrypoint
+BlotChain/
+├── src/                      # Main React + Vite web application
+│   ├── components/           # 2D SVG, 3D WebGL, and WebXR VR components
+│   ├── services/             # API clients (CoinGecko, GraphQL, MEV Shield)
+│   ├── hooks/                # Real-time state synchronization hooks
+│   └── utils/                # Data transformers, collision physics, visuals
+├── automation/               # Isolated automation & bot layer
+│   ├── shared/               # Shared TypeScript types & contract configuration
+│   ├── contract/             # Hardhat ERC-721 BlotChainSnapshot contract (Solidity ^0.8.24)
+│   └── bot/                  # Playwright snapshot orchestrator, IPFS metadata & Telegram bot
+└── decentraland-scene/       # Decentraland SDK 7 (ECS7) procedural 3D scene
 ```
+
+---
+
+## 🛠️ Technology Stack
+
+- **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, Lucide Icons
+- **3D & VR:** Three.js, OrbitControls, WebXR API
+- **Smart Contracts:** Solidity ^0.8.24, Hardhat, EIP-2981 Royalties
+- **Automation:** Playwright Chromium headless, Pinata IPFS SDK, Telegram Bot API
+
+---
 
 ## 📦 Installation & Setup
 
+### Prerequisites
+- **Node.js** v18+
+- **pnpm** (recommended) or npm
+
+### Getting Started
+
 ```bash
-# Install dependencies
+# Clone repository
+git clone https://github.com/riznykst/BlotChain.git
+cd BlotChain
+
+# Install workspace dependencies
 pnpm install
 
-# Run development server
+# Start local development server
 pnpm run dev
 
 # Build production bundle
 pnpm run build
+
+# Run linter checks
+pnpm run lint
 ```
+
+---
+
+## 🔮 Major Features Backlog & Architecture Proposals
+
+For detailed information on proposed architecture solutions, integration guides, and future roadmap concepts, please see:
+📄 **[PROPOSED_FEATURES.md](./PROPOSED_FEATURES.md)**
+
+### Backlog Summary:
+1. **🌐 CoinGecko API Health Diagnostic Tool:** Real-time health checks and 429 rate limit graceful fallback.
+2. **🔗 Graph WL (Watchlist Subgraphs) Integration Guide:** Step-by-step instructions for adding custom subgraphs.
+3. **📊 Live DeFi Data Matrix via GraphQL:** Accessible metrics across DEX, Lending, Yield Staking, and MEV sectors.
+4. **🎨 3 Proposed Dashboard Concepts:**
+   - *DeFi Protocol & Liquidity Flow Dashboard* (AMM to Lending flow vectors).
+   - *MEV & Intent Threat Visualization Dashboard* (Mempool threat monitoring & 1-Click NFT protection).
+   - *Multi-Chain Asset & Portfolio Intelligence Dashboard* (Cross-chain aggregation & yield metrics).
+
+---
 
 ## 📄 License
 
-MIT
+This project is licensed under the MIT License.
