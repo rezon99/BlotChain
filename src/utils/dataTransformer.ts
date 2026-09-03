@@ -1,7 +1,6 @@
 import { Node, Connection } from '../types';
 import { CoinMarketData, ExchangeData, NFTMarketData } from '../services/coinGeckoApi';
 import { calculateNodeSize, getNodeColor, generateParticles } from './visuals';
-import { applyForceDirectedLayout } from './collisionDetection';
 
 export interface ViewportConfig {
   width: number;
@@ -10,10 +9,10 @@ export interface ViewportConfig {
 }
 
 export function getResponsiveViewport(width: number, height: number): ViewportConfig {
-  const safeWidth = Math.max(320, Math.min(1920, Math.floor(width || 800)));
-  const safeHeight = Math.max(320, Math.min(1400, Math.floor(height || 600)));
+  const safeWidth = Math.max(320, Math.floor(width || 800));
+  const safeHeight = Math.max(320, Math.floor(height || 600));
   const isMobile = safeWidth <= 640;
-  const padding = isMobile ? 24 : 50;
+  const padding = isMobile ? 18 : 28;
 
   return {
     width: safeWidth,
@@ -27,29 +26,35 @@ function generateConcentricPositions(
   viewport: ViewportConfig
 ): Array<{ x: number; y: number }> {
   if (count === 0) return [];
+  if (count === 1) return [{ x: viewport.width / 2, y: viewport.height / 2 }];
 
   const centerX = viewport.width / 2;
   const centerY = viewport.height / 2;
-  const maxRadius = Math.max(70, Math.min(viewport.width, viewport.height) / 2 - viewport.padding);
-  const ringGap = Math.max(40, Math.min(84, maxRadius / 3));
-  const innerRadius = Math.max(50, ringGap * 0.9);
+  const padding = viewport.padding || 28;
+
+  // Maximize span across both width and height to fill the entire screen
+  const rxMax = Math.max(60, centerX - padding - 35);
+  const ryMax = Math.max(60, centerY - padding - 35);
+
   const positions: Array<{ x: number; y: number }> = [];
+  // Vogel golden angle distribution across full elliptical/rectangular viewport
+  const goldenAngle = Math.PI * (3 - Math.sqrt(5)); // ~137.5077 degrees
 
-  let ring = 0;
-  let placed = 0;
-  while (placed < count) {
-    const radius = Math.min(maxRadius, innerRadius + ring * ringGap);
-    const itemsInRing = ring === 0 ? 1 : Math.max(6, Math.floor((2 * Math.PI * radius) / Math.max(36, ringGap * 0.9)));
-
-    for (let i = 0; i < itemsInRing && placed < count; i++) {
-      const angle = (i / itemsInRing) * Math.PI * 2;
-      positions.push({
-        x: centerX + Math.cos(angle) * radius,
-        y: centerY + Math.sin(angle) * radius
-      });
-      placed++;
+  for (let i = 0; i < count; i++) {
+    if (i === 0) {
+      positions.push({ x: centerX, y: centerY });
+      continue;
     }
-    ring++;
+
+    // Spread factor from 0.25 to 0.98 to cover the whole screen space
+    const ratio = Math.sqrt(i / (count - 0.5));
+    const spread = 0.25 + 0.73 * ratio;
+
+    const angle = i * goldenAngle;
+    const x = centerX + Math.cos(angle) * (rxMax * spread);
+    const y = centerY + Math.sin(angle) * (ryMax * spread);
+
+    positions.push({ x, y });
   }
 
   return positions;
@@ -65,18 +70,12 @@ export function adaptNodesToViewport(
   const viewport = getResponsiveViewport(width, height);
   const positions = generateConcentricPositions(nodes.length, viewport);
 
-  const resized = nodes.map((node, index) => ({
+  return nodes.map((node, index) => ({
     ...node,
     x: positions[index]?.x ?? viewport.width / 2,
     y: positions[index]?.y ?? viewport.height / 2,
     size: calculateNodeSize(node.liquidity, viewport.width, Boolean(node.isHub))
   }));
-
-  return applyForceDirectedLayout(resized, viewport, {
-    minDistance: viewport.width <= 640 ? 10 : 14,
-    repulsionStrength: viewport.width <= 640 ? 1.1 : 0.9,
-    centerAttraction: 0.025
-  });
 }
 
 export function transformCoinDataToNodes(
@@ -143,11 +142,7 @@ export function transformCoinDataToNodes(
     };
   });
 
-  return applyForceDirectedLayout(mappedNodes, viewport, {
-    minDistance: viewport.width <= 640 ? 10 : 14,
-    repulsionStrength: viewport.width <= 640 ? 1.1 : 0.9,
-    centerAttraction: 0.02
-  });
+  return mappedNodes;
 }
 
 export function generateConnectionsFromRealData(nodes: Node[]): Connection[] {
@@ -263,11 +258,7 @@ export function transformNFTDataToNodes(
     });
   });
 
-  return applyForceDirectedLayout(nodes, viewport, {
-    minDistance: viewport.width <= 640 ? 10 : 14,
-    repulsionStrength: viewport.width <= 640 ? 1.15 : 0.9,
-    centerAttraction: 0.02
-  });
+  return nodes;
 }
 
 export function generateNFTConnections(nodes: Node[]): Connection[] {

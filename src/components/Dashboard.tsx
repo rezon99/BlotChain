@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react';
+import { Filter, ChevronUp, ChevronDown } from 'lucide-react';
 import { Node as NodeType, TooltipData, AnimationSettings, DashboardMode } from '../types';
 import { Node } from './Node';
 import { Connection as ConnectionComponent } from './Connection';
@@ -41,6 +42,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
   const [activeChartNode, setActiveChartNode] = useState<NodeType | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
+  const [isFilterCollapsed, setIsFilterCollapsed] = useState<boolean>(true);
 
   const [manualPositions, setManualPositions] = useState<Record<string, { x: number, y: number }>>(() => {
     const saved = localStorage.getItem('blotchain_positions');
@@ -225,15 +227,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
     const coords = getSVGCoords(e, svg);
 
-    // Find node size for accurate boundary clamping during drag
+    // Find node size for boundary clamping during drag
     const node = nodes.find(n => n.id === draggingNodeId);
     const nodeSize = node ? node.size : 20;
 
-    const labelSafetyMarginX = 35;
-    const minX = Math.max(viewport.padding, labelSafetyMarginX) + nodeSize;
-    const maxX = viewport.width - Math.max(viewport.padding, labelSafetyMarginX) - nodeSize;
-    const minY = viewport.padding + nodeSize;
-    const maxY = viewport.height - viewport.padding - nodeSize - 40; // 40px safety for labels
+    const minX = nodeSize + 5;
+    const maxX = viewport.width - nodeSize - 5;
+    const minY = nodeSize + 5;
+    const maxY = viewport.height - nodeSize - 15;
 
     const clampedX = Math.max(minX, Math.min(maxX, coords.x - dragOffset.x));
     const clampedY = Math.max(minY, Math.min(maxY, coords.y - dragOffset.y));
@@ -396,12 +397,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       <div
         ref={viewportRef}
-        className="relative flex-1 min-h-0 px-2 pb-2 sm:px-4 sm:pb-4"
+        className="relative flex-1 min-h-0 px-0 pb-0"
       >
         <svg 
           ref={svgRef}
           viewBox={`0 0 ${viewport.width} ${viewport.height}`}
-          className="w-full h-full max-w-full rounded-lg"
+          className="w-full h-full max-w-full block select-none"
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
@@ -469,26 +470,57 @@ export const Dashboard: React.FC<DashboardProps> = ({
           className="absolute top-4 right-4 z-10"
         />
 
-        <div className="absolute bottom-4 left-4 z-10 flex flex-col gap-2 max-w-[calc(100%-32px)]">
-          <Legend
-            mode={mode}
-            className="bg-gray-900 bg-opacity-90 backdrop-blur-sm border border-gray-700 rounded-lg p-3 w-full"
-          />
-          {/* Category Filter positioned vertically below the Legend panel */}
-          <div className="flex items-center gap-1 sm:gap-2 bg-gray-900 bg-opacity-95 backdrop-blur-sm p-1.5 rounded-lg border border-gray-700 overflow-x-auto max-w-full">
-            {categories.map(cat => (
+        <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 z-10 flex flex-col gap-2 max-w-[calc(100%-24px)] pointer-events-none">
+          <div className="pointer-events-auto w-fit">
+            <Legend
+              mode={mode}
+              className="bg-gray-900/90 backdrop-blur-md border border-gray-700/80 rounded-lg p-2.5 shadow-lg"
+            />
+          </div>
+
+          <div className="pointer-events-auto w-fit max-w-full">
+            {isFilterCollapsed ? (
               <button
-                key={cat}
-                onClick={() => setCategoryFilter(cat)}
-                className={`px-2.5 py-1 text-[10px] sm:text-xs rounded-md transition-all whitespace-nowrap font-medium ${
-                  categoryFilter === cat
-                    ? mode === 'crypto' ? 'bg-blue-600 text-white shadow-lg' : 'bg-purple-600 text-white shadow-lg'
-                    : 'text-gray-400 hover:text-gray-200 hover:bg-slate-800'
-                }`}
+                onClick={() => setIsFilterCollapsed(false)}
+                className="flex items-center gap-1.5 bg-gray-900/90 hover:bg-gray-800/90 text-gray-300 hover:text-white backdrop-blur-md px-3 py-1.5 rounded-lg border border-gray-700/80 text-xs font-medium transition-all shadow-md cursor-pointer select-none"
+                title="Filter by category"
               >
-                {cat}
+                <Filter size={13} className="text-blue-400" />
+                <span>Filter: <span className="text-white font-semibold">{categoryFilter}</span></span>
+                <ChevronUp size={13} className="text-gray-400 ml-0.5" />
               </button>
-            ))}
+            ) : (
+              <div className="flex flex-col gap-1.5 bg-gray-900/95 backdrop-blur-md p-2 rounded-lg border border-gray-700 shadow-xl max-w-full">
+                <div className="flex items-center justify-between gap-3 pb-1 border-b border-gray-800 text-[11px] text-gray-400">
+                  <div className="flex items-center gap-1.5">
+                    <Filter size={12} className="text-blue-400" />
+                    <span className="font-semibold text-gray-300">Category Filter</span>
+                  </div>
+                  <button
+                    onClick={() => setIsFilterCollapsed(true)}
+                    className="p-0.5 hover:text-white rounded hover:bg-slate-800 text-gray-400 transition-colors"
+                    title="Collapse filter"
+                  >
+                    <ChevronDown size={14} />
+                  </button>
+                </div>
+                <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto max-w-full py-0.5">
+                  {categories.map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => setCategoryFilter(cat)}
+                      className={`px-2.5 py-1 text-[10px] sm:text-xs rounded-md transition-all whitespace-nowrap font-medium ${
+                        categoryFilter === cat
+                          ? mode === 'crypto' ? 'bg-blue-600 text-white shadow-md' : 'bg-purple-600 text-white shadow-md'
+                          : 'text-gray-400 hover:text-gray-200 hover:bg-slate-800'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

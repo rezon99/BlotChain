@@ -1,25 +1,19 @@
 import { Particle } from '../types';
 
 export function calculateNodeSize(liquidity: number, viewportWidth: number = 1280, isHub: boolean = false): number {
-  // Logarithmic scaling for better visual distribution
+  // Logarithmic scaling for visual distribution
   const isMobile = viewportWidth <= 480;
   const isTablet = viewportWidth > 480 && viewportWidth <= 1024;
 
-  const minSize = isMobile ? 8 : isTablet ? 10 : 12;
-  const maxSize = isMobile ? 24 : isTablet ? 36 : 48;
+  const minSize = isMobile ? 12 : isTablet ? 16 : 20;
+  const maxSize = isMobile ? 26 : isTablet ? 38 : 50;
   const logLiquidity = Math.log10(Math.max(1, liquidity));
   const normalizedSize = (logLiquidity - 6) / (12 - 6); // Normalize between 1M and 1T
-  const baseSize = Math.max(minSize, Math.min(maxSize, minSize + normalizedSize * (maxSize - minSize)));
+  const clampedNorm = Math.max(0, Math.min(1, normalizedSize));
+  const baseSize = minSize + clampedNorm * (maxSize - minSize);
 
-  // Dynamic scale factor based on screen height and width to prevent clutter and ensure precise fit
-  const screenHeight = typeof window !== 'undefined' ? window.innerHeight : 600;
-  const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 800;
-  const scaleFactor = Math.max(0.55, Math.min(1.1, Math.min(screenWidth / 1100, screenHeight / 750)));
-
-  const finalSize = baseSize * scaleFactor;
-
-  if (!isHub) return finalSize;
-  return Math.min(maxSize * 1.25, finalSize * (isMobile ? 1.1 : 1.2));
+  if (!isHub) return Math.round(baseSize);
+  return Math.round(Math.min(maxSize * 1.25, baseSize * 1.2));
 }
 
 export function getNodeColor(change24h: number, change7d: number): string {

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+import { Filter, ChevronUp, ChevronDown, Glasses } from 'lucide-react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
@@ -37,6 +38,8 @@ export const DashboardVR: React.FC<DashboardVRProps> = ({
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
   const [activeChartNode, setActiveChartNode] = useState<NodeType | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
+  const [isFilterCollapsed, setIsFilterCollapsed] = useState<boolean>(true);
+  const [isControlsCollapsed, setIsControlsCollapsed] = useState<boolean>(true);
 
   const [animationSettings, setAnimationSettings] = useState<AnimationSettings>(() => {
     const saved = localStorage.getItem('blotchain_animation_settings');
@@ -614,14 +617,39 @@ export const DashboardVR: React.FC<DashboardVRProps> = ({
         )}
 
         {/* VR Instructions Overlay */}
-        <div className="absolute top-4 left-4 z-10 bg-gray-900 bg-opacity-80 backdrop-blur-sm border border-gray-800 rounded-lg p-2.5 max-w-[200px] pointer-events-none">
-          <p className="text-white text-[11px] font-semibold mb-1">VR SPACE MODE</p>
-          <div className="space-y-1 text-gray-400 text-[10px] font-medium">
-            <p className="text-indigo-400 font-bold">• Enter VR button is located at the bottom center</p>
-            <p>• Headset wraps constellation around your coordinates</p>
-            <p>• Majestic slow auto-rotation enabled for relaxed viewing</p>
-            <p>• Supports flat drag-to-look fallback</p>
-          </div>
+        <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-10 select-none">
+          {isControlsCollapsed ? (
+            <button
+              onClick={() => setIsControlsCollapsed(false)}
+              className="flex items-center gap-1.5 bg-gray-900/85 hover:bg-gray-800/90 text-gray-300 hover:text-white backdrop-blur-md px-2.5 py-1 rounded-full border border-gray-700/80 text-xs font-semibold shadow-md transition-all cursor-pointer"
+              title="Show VR controls"
+            >
+              <Glasses size={13} className="text-purple-400" />
+              <span>VR Info</span>
+              <ChevronDown size={12} className="text-gray-400" />
+            </button>
+          ) : (
+            <div className="bg-gray-900/95 backdrop-blur-md border border-gray-700 rounded-lg p-2.5 max-w-[220px] shadow-xl">
+              <div className="flex items-center justify-between gap-2 mb-1.5 pb-1 border-b border-gray-800">
+                <div className="flex items-center gap-1.5">
+                  <Glasses size={13} className="text-purple-400" />
+                  <span className="text-white text-[11px] font-bold">VR SPACE MODE</span>
+                </div>
+                <button
+                  onClick={() => setIsControlsCollapsed(true)}
+                  className="p-0.5 hover:text-white rounded hover:bg-slate-800 text-gray-400 transition-colors cursor-pointer"
+                  title="Collapse controls"
+                >
+                  <ChevronUp size={13} />
+                </button>
+              </div>
+              <div className="space-y-1 text-gray-300 text-[10px] font-medium">
+                <p className="text-indigo-400 font-bold">• Enter VR button at bottom center</p>
+                <p>• Headset wraps constellation around your coordinates</p>
+                <p>• Supports flat drag-to-look fallback</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Floating Controls Overlays */}
@@ -632,26 +660,57 @@ export const DashboardVR: React.FC<DashboardVRProps> = ({
           className="absolute top-4 right-4 z-10"
         />
 
-        <div className="absolute bottom-4 left-4 z-10 flex flex-col gap-2 max-w-[calc(100%-32px)]">
-          <Legend
-            mode={mode}
-            className="bg-gray-900 bg-opacity-90 backdrop-blur-sm border border-gray-700 rounded-lg p-3 w-full"
-          />
-          {/* Category Filter positioned vertically below the Legend panel */}
-          <div className="flex items-center gap-1 sm:gap-2 bg-gray-900 bg-opacity-95 backdrop-blur-sm p-1.5 rounded-lg border border-gray-700 overflow-x-auto max-w-full">
-            {categories.map(cat => (
+        <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 z-10 flex flex-col gap-2 max-w-[calc(100%-24px)] pointer-events-none">
+          <div className="pointer-events-auto w-fit">
+            <Legend
+              mode={mode}
+              className="bg-gray-900/90 backdrop-blur-md border border-gray-700/80 rounded-lg p-2.5 shadow-lg"
+            />
+          </div>
+
+          <div className="pointer-events-auto w-fit max-w-full">
+            {isFilterCollapsed ? (
               <button
-                key={cat}
-                onClick={() => setCategoryFilter(cat)}
-                className={`px-2.5 py-1 text-[10px] sm:text-xs rounded-md transition-all whitespace-nowrap font-medium ${
-                  categoryFilter === cat
-                    ? mode === 'crypto' ? 'bg-blue-600 text-white shadow-lg' : 'bg-purple-600 text-white shadow-lg'
-                    : 'text-gray-400 hover:text-gray-200 hover:bg-slate-800'
-                }`}
+                onClick={() => setIsFilterCollapsed(false)}
+                className="flex items-center gap-1.5 bg-gray-900/90 hover:bg-gray-800/90 text-gray-300 hover:text-white backdrop-blur-md px-3 py-1.5 rounded-lg border border-gray-700/80 text-xs font-medium transition-all shadow-md cursor-pointer select-none"
+                title="Filter by category"
               >
-                {cat}
+                <Filter size={13} className="text-blue-400" />
+                <span>Filter: <span className="text-white font-semibold">{categoryFilter}</span></span>
+                <ChevronUp size={13} className="text-gray-400 ml-0.5" />
               </button>
-            ))}
+            ) : (
+              <div className="flex flex-col gap-1.5 bg-gray-900/95 backdrop-blur-md p-2 rounded-lg border border-gray-700 shadow-xl max-w-full">
+                <div className="flex items-center justify-between gap-3 pb-1 border-b border-gray-800 text-[11px] text-gray-400">
+                  <div className="flex items-center gap-1.5">
+                    <Filter size={12} className="text-blue-400" />
+                    <span className="font-semibold text-gray-300">Category Filter</span>
+                  </div>
+                  <button
+                    onClick={() => setIsFilterCollapsed(true)}
+                    className="p-0.5 hover:text-white rounded hover:bg-slate-800 text-gray-400 transition-colors cursor-pointer"
+                    title="Collapse filter"
+                  >
+                    <ChevronDown size={14} />
+                  </button>
+                </div>
+                <div className="flex items-center gap-1 sm:gap-1.5 overflow-x-auto max-w-full py-0.5">
+                  {categories.map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => setCategoryFilter(cat)}
+                      className={`px-2.5 py-1 text-[10px] sm:text-xs rounded-md transition-all whitespace-nowrap font-medium ${
+                        categoryFilter === cat
+                          ? mode === 'crypto' ? 'bg-blue-600 text-white shadow-md' : 'bg-purple-600 text-white shadow-md'
+                          : 'text-gray-400 hover:text-gray-200 hover:bg-slate-800'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
