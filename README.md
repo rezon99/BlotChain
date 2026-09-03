@@ -1,169 +1,193 @@
-# BlotChain - Real-Time Cryptocurrency Liquidity & MEV Visualization Platform
+# BlotChain - Real-Time Cryptocurrency Liquidity Visualization Platform
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![React](https://img.shields.io/badge/React-18.3.1-blue)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5.3-blue)](https://www.typescriptlang.org/)
 [![Vite](https://img.shields.io/badge/Vite-5.4.2-purple)](https://vitejs.dev/)
 [![Three.js](https://img.shields.io/badge/Three.js-WebGL-black)](https://threejs.org/)
-[![Hardhat](https://img.shields.io/badge/Hardhat-EVM-yellow)](https://hardhat.org/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4.1-38bdf8)](https://tailwindcss.com/)
 
-**BlotChain** is an advanced interactive web platform designed for real-time visualization of cryptocurrency asset relationships, liquidity flows, and MEV (Maximal Extractable Value) threat intelligence. Built with support for **2D SVG**, **3D WebGL (Three.js)**, and **WebXR Virtual Reality (VR)**, BlotChain transforms complex market data and transaction dynamics into intuitive spatial network graphs.
+**BlotChain** is an advanced interactive web application designed for real-time visualization of cryptocurrency asset relationships, market dynamics, and liquidity flows. Featuring multi-dimensional rendering across **2D SVG**, **3D WebGL (Three.js)**, and **WebXR Virtual Reality (VR)**, BlotChain transforms complex market feeds into an intuitive spatial network canvas.
 
 ---
 
 ## 📋 Table of Contents
 
-- [Key Features](#-key-features)
+- [Current Implementation Highlights](#-current-implementation-highlights)
 - [Visualization Modes](#-visualization-modes)
 - [Visual Encoding System](#-visual-encoding-system)
 - [System Architecture](#-system-architecture)
-- [Automation & Web3 Layer](#-automation--web3-layer)
+- [Data Flow Pipeline](#-data-flow-pipeline)
 - [Tech Stack](#-tech-stack)
 - [Security & Environment Secrets Management](#-security--environment-secrets-management)
 - [Installation & Setup](#-installation--setup)
-- [Data Flow Pipeline](#-data-flow-pipeline)
-- [Roadmap & Backlog](#-roadmap--backlog)
+- [Product Roadmap & Backlog](#-product-roadmap--backlog)
 - [License](#-license)
 
 ---
 
-## 🎯 Key Features
+## ✨ Current Implementation Highlights
 
 ### 1. Multi-Dimensional Network Graphs
-- **Interactive SVG & WebGL Canvases:** Render cryptocurrency nodes, exchanges, and liquidity channels dynamically.
-- **Physics & Layout:** Force-directed node layout positioning with smooth particle flows indicating direction and volume of liquidity.
-- **Node Manipulation:** Drag-and-drop nodes in 2D to custom positions, inspect connections, and lock node coordinates.
+- **Fullscreen Immersive Canvas:** Supports smooth switching across 2D SVG, 3D WebGL (Three.js), and WebXR VR viewports.
+- **Organic Spiral Layout:** Calculates organic logarithmic spiral layouts for initial node positioning, preventing spatial clutter and maximizing visibility.
+- **Interactive Drag-and-Drop:** Drag nodes in 2D to custom positions with coordinate locking to freeze specific assets while the physics layout runs.
+- **Informative Hover Cards:** Hover or select any node to open detailed asset tooltips displaying live prices, 24h trends, volume, and market cap.
 
-### 2. Real-Time Market Synchronisation
-- **Market Data Feeds:** Continuous polling and synchronization of top market assets, price dynamics, market cap, and 24-hour volume metrics.
-- **Historical Performance:** Detailed price history charts (1d, 7d, 30d, 1y) with interactive time-series modal views and mini sparklines.
-- **Asset Comparison Mode:** Side-by-side asset metric comparison calculating percent differences across market cap, volume, and volatility.
+### 2. Live CoinGecko Market Data Integration
+- **Real-Time Data Sync:** Synchronizes with CoinGecko market API to fetch live prices, 24h percentage changes, market capitalization, and daily trading volume.
+- **Interactive Price History Modal:** View historical performance charts across multiple timeframes (`1d`, `7d`, `30d`, `1y`) with detailed asset metrics.
+- **Mini Sparklines:** Inline trend sparklines rendered dynamically inside hover tooltips and asset selection panels.
+- **Asset Comparison Mode:** Side-by-side metric evaluation comparing price changes, volume intensity, and market cap differences across selected cryptocurrencies.
 
-### 3. MEV Shield & Analytics
-- **Threat Detection:** Live monitoring of frontrunning, sandwich attacks, and arbitrage exploitation.
-- **Risk Scoring:** Real-time MEV risk level metrics, transaction bundle simulation, and RPC protection status.
+### 3. Real-Time Liquidity Flow Demonstration
+- **Directed Bezier Curves:** Liquidity connections rendered as smooth Bezier splines connecting source and target asset nodes.
+- **Animated Particle Streams:** Dynamic particle flows along connection paths indicating the direction of capital movement.
+- **Dynamic Encoding:** Connection line thickness and particle animation speeds scale dynamically according to 24h trading volume and price momentum (up to 12px max stroke width).
+- **Capital Inflow & Outflow Visuals:** Visual distinction between incoming and outgoing capital streams for every monitored asset.
 
 ### 4. Interactive Dashboard Controls
-- **Customizable Intervals:** Selectable polling intervals (15s, 30s, 60s) to balance freshness and API rate limits.
-- **Performance Mode:** Toggle physics animations, node breathing effects, particle counts, and transparency effects for optimized rendering on low-power hardware.
+- **Collapsible Navigation & Filters:** Navigation header and filter controls are collapsed by default to maximize uninhibited graph visibility.
+- **Customizable Polling Intervals:** Switch between `15s`, `30s`, or `60s` market data refresh intervals to balance freshness with API rate limits.
+- **Performance Mode:** Energy-saving toggle that optimizes frame rate, reduces particle counts, and disables resource-heavy effects on lower-power devices.
 
 ---
 
 ## 🌌 Visualization Modes
 
-BlotChain supports three immersive rendering engines:
+BlotChain provides three dedicated rendering viewports:
 
-| Mode | Technology | Key Capabilities |
+| Viewport Mode | Engine | Key Capabilities |
 | :--- | :--- | :--- |
-| **2D Mode** | SVG + React | Dynamic SVG paths, Bezier connection curves, interactive tooltips, node drag-and-drop, and asset filter categories. |
-| **3D Mode** | Three.js + WebGL | Force-directed 3D point cloud and sphere clusters, OrbitControls, 3D particle motion along spatial splines, dynamic ambient lighting. |
-| **VR Mode** | WebXR + Three.js | Fully immersive 3D spatial canvas for VR headsets (Meta Quest, WebXR devices), spatial hand controller raycasting, and 360-degree liquidity inspection. |
+| **2D Mode** | SVG + React | Dynamic SVG paths, Bezier curves, interactive drag-and-drop node locking, hover tooltips, and category filtering. |
+| **3D Mode** | Three.js + WebGL | Spatial point cloud and sphere clusters, OrbitControls navigation, 3D animated particle streams along spatial splines. |
+| **VR Mode** | WebXR + Three.js | Fully spatial canvas for VR headsets (Meta Quest, WebXR devices), 360-degree interactive liquidity inspection. |
 
 ---
 
 ## 🎨 Visual Encoding System
 
-BlotChain uses strict visual mappings to convey asset health and liquidity dynamics at a glance:
+BlotChain uses strict visual mappings to convey asset performance and capital movement:
 
-### Node Color Encoding
-- 🟢 **Green (`#22c55e`):** Asset gaining > +5% (24h)
-- 🔴 **Red (`#ef4444`):** Asset dropping > -5% (24h)
+### Node Color & Volatility Encoding
+- 🟢 **Green (`#22c55e`):** Asset price gain > +5% (24h)
+- 🔴 **Red (`#ef4444`):** Asset price drop > -5% (24h)
 - 🟡 **Yellow (`#eab308`):** High volatility (swing > ±20%)
 - ⚪ **Gray (`#6b7280`):** Stable / minimal change (within ±5%)
 
 ### Liquidity Flow Encoding
 - 🔵 **Blue Line (`#3b82f6`):** Inflowing liquidity stream
 - 🟠 **Orange Line (`#f97316`):** Outflowing liquidity stream
-- ✨ **Animated Particles:** White spheres flowing along Bezier paths indicating direction and volume intensity. Line thickness scales proportionally to liquidity volume (up to 12px max thickness).
+- ✨ **Animated Particles:** Glowing particles moving along Bezier paths indicating direction and flow intensity. Line stroke thickness scales dynamically with trading volume (1px to 12px).
 
 ---
 
 ## 🏗️ System Architecture
 
+The project structure cleanly separates UI components, custom hooks, data services, and mathematical utilities:
+
 ```
 BlotChain Root
-├── src/                        # Frontend Application
-│   ├── components/             # React UI & Canvas Components
-│   │   ├── Dashboard.tsx       # Main 2D Dashboard container
-│   │   ├── Dashboard3D.tsx     # Three.js 3D Viewport
-│   │   ├── DashboardVR.tsx     # WebXR Virtual Reality Viewport
-│   │   ├── Node.tsx            # Interactive 2D Node component
-│   │   ├── Connection.tsx      # SVG liquidity connections & animated particles
-│   │   ├── ChartModal.tsx      # Time-series asset performance modal
+├── scripts/                    # Verification and test render scripts
+│   ├── test_render.py          # Python visual verification script
+│   ├── verify_3d.py            # Python 3D canvas verification script
+│   └── verify_vr.py            # Python WebXR canvas verification script
+│
+├── src/                        # Frontend Application Source
+│   ├── components/             # React UI & Viewport Components
+│   │   ├── CascadeEffect.tsx   # Visual particle/flow cascade overlay
+│   │   ├── ChartModal.tsx      # Time-series price history modal (1d, 7d, 30d, 1y)
 │   │   ├── ComparisonPanel.tsx # Side-by-side asset comparison view
-│   │   ├── MEVShieldPanel.tsx  # MEV risk metrics panel
-│   │   ├── SettingsPanel.tsx   # Dashboard performance & interval settings
-│   │   └── Tooltip.tsx         # Hover inspection card
+│   │   ├── Connection.tsx      # SVG liquidity curves & animated particles
+│   │   ├── Dashboard.tsx       # Main 2D SVG graph canvas container
+│   │   ├── Dashboard3D.tsx     # Three.js 3D WebGL spatial view
+│   │   ├── DashboardVR.tsx     # WebXR Virtual Reality canvas engine
+│   │   ├── DetailedChart.tsx   # Detailed chart component for asset analysis
+│   │   ├── ErrorDisplay.tsx    # User notification & error display banner
+│   │   ├── Header.tsx          # Collapsible main navigation header bar
+│   │   ├── Legend.tsx          # Graph visual encoding legend panel
+│   │   ├── LiveStatus.tsx      # Real-time API sync indicator & statistics
+│   │   ├── LoadingSpinner.tsx  # Initial loading indicator
+│   │   ├── Node.tsx            # Interactive 2D graph node with drag & drop
+│   │   ├── SettingsPanel.tsx   # Polling interval & Performance Mode controls
+│   │   ├── Sparkline.tsx       # SVG mini sparkline trend chart
+│   │   └── Tooltip.tsx         # Hover inspection card for asset metrics
 │   ├── hooks/                  # Custom React Hooks
-│   │   ├── useRealTimeData.ts  # Synchronizes market feeds & particle updates
-│   │   └── useMEVShieldData.ts # Synchronizes MEV analytics state
-│   ├── services/               # API Data Adapters
-│   │   ├── coinGeckoApi.ts     # Public & Pro market API client
-│   │   └── mevShieldApi.ts     # MEV threat simulation API client
-│   ├── utils/                  # Data transformation & layout algorithms
-│   │   ├── dataTransformer.ts  # Transforms API responses into Nodes & Connections
-│   │   ├── dataSimulator.ts    # Particle progress simulation
-│   │   └── mevAdapter.ts       # MEV event mapping
+│   │   └── useRealTimeData.ts  # Synchronizes CoinGecko feeds & particle state
+│   ├── services/               # API Integration Services
+│   │   └── coinGeckoApi.ts     # CoinGecko REST client with caching & fallback
+│   ├── types/                  # TypeScript Type Definitions
+│   │   └── index.ts            # Node, Connection, Market, & UI state interfaces
+│   ├── utils/                  # Data Algorithms & Physics Utilities
+│   │   ├── collisionDetection.ts # Node collision resolution & force layout
+│   │   ├── dataSimulator.ts    # Particle animation & simulated flow physics
+│   │   ├── dataTransformer.ts  # Maps CoinGecko API data to spiral graph layouts
+│   │   └── visuals.ts          # Color mapping & visual encoding helpers
 │   ├── App.tsx                 # Viewport mode router (2D / 3D / VR / Snapshot)
-│   └── main.tsx                # Application entry point
+│   ├── index.css               # Global Tailwind CSS styles
+│   ├── main.tsx                # Application entry point
+│   └── vite-env.d.ts           # Vite environment declaration
 │
-├── automation/                 # Web3 & Automation Service Layer
-│   ├── contract/               # Hardhat EVM Smart Contract project
-│   │   ├── contracts/          # Solidity ERC-721 Snapshot contract
-│   │   └── scripts/            # Deployment & minting scripts
-│   ├── bot/                    # Automated Puppeteer Snapshot Bot
-│   │   └── src/                # Captures dashboard snapshots & uploads to IPFS
-│   └── shared/                 # Shared TypeScript interfaces & JSON schemas
-│
-└── scripts/                    # Headless render verification scripts (Python)
+├── .env.example                # Template for environment variables
+├── index.html                  # HTML entry point
+├── package.json                # Project dependencies and script definitions
+├── tailwind.config.js          # Tailwind CSS styling configuration
+├── tsconfig.json               # TypeScript project configuration
+└── vite.config.ts              # Vite bundler configuration
 ```
 
 ---
 
-## 🤖 Automation & Web3 Layer
+## 🔄 Data Flow Pipeline
 
-The `automation/` workspace operates independently of the frontend application to capture periodic state snapshots and record them on EVM blockchains:
-
-1. **ERC-721 Contract (`automation/contract`):** `BlotChainSnapshot.sol` mints immutable NFTs containing metadata and IPFS CID hashes representing real-time dashboard snapshots.
-2. **Headless Snapshot Bot (`automation/bot`):**
-   - Launches a headless Chromium browser using Puppeteer in `snapshotMode=1`.
-   - Captures high-resolution visual screenshots of the live 2D SVG canvas.
-   - Uploads snapshot images and JSON metadata to IPFS via Decentralized Storage.
-   - Executes smart contract calls to mint ERC-721 NFT snapshots.
-   - Dispatches automated notifications and snapshots to Telegram channels via Telegram Bot API.
+```
+┌──────────────────────────────────────────────────────────┐
+│              CoinGecko Live Market API                   │
+└────────────────────────────┬─────────────────────────────┘
+                             │
+                             ▼
+┌──────────────────────────────────────────────────────────┐
+│       Services Layer (src/services/coinGeckoApi.ts)      │
+└────────────────────────────┬─────────────────────────────┘
+                             │
+                             ▼
+┌──────────────────────────────────────────────────────────┐
+│            Data Transformer & Physics Engine             │
+│    (dataTransformer.ts, dataSimulator.ts, collision)     │
+└────────────────────────────┬─────────────────────────────┘
+                             │
+                             ▼
+┌──────────────────────────────────────────────────────────┐
+│           State Manager Hook (useRealTimeData)           │
+└────────────┬───────────────────────┬─────────────────────┘
+             │                       │                     │
+             ▼                       ▼                     ▼
+  ┌────────────────────┐  ┌───────────────────┐  ┌──────────────────┐
+  │ 2D SVG Canvas      │  │ 3D Three.js WebGL │  │ WebXR VR Canvas  │
+  │ (Dashboard.tsx)    │  │ (Dashboard3D.tsx) │  │ (DashboardVR.tsx)│
+  └────────────────────┘  └───────────────────┘  └──────────────────┘
+```
 
 ---
 
 ## 🛠️ Tech Stack
 
 - **Frontend Core:** React 18, TypeScript, Vite, Tailwind CSS, Lucide React
-- **3D & VR Engines:** Three.js, `@react-three/fiber`, `@react-three/drei`, WebXR
-- **Smart Contracts & Blockchain:** Solidity 0.8.20, Hardhat, Ethers.js, ERC-721 (OpenZeppelin)
-- **Automation & Bot:** Puppeteer, Node.js, Jest, IPFS / NFT.Storage API
-- **Verification Scripts:** Python 3 (PIL/Pillow visual verification scripts)
+- **3D & VR Engines:** Three.js, WebGL, WebXR Device API
+- **State & Data Handling:** Custom React Hooks (`useRealTimeData`), CoinGecko REST API integration
+- **Styling & Icons:** Tailwind CSS, Lucide Icons
+- **Verification & Testing:** Python 3 (PIL/Pillow visual verification scripts)
 
 ---
 
 ## 🔒 Security & Environment Secrets Management
 
-When publishing or open-sourcing this repository, strict security measures must be followed to prevent accidental exposure of API keys, private keys, and sensitive tokens.
-
-### 🛡️ Critical Security Rules for Public Repositories
-
-1. **NEVER Commit Private Keys or Live Secrets:**
-   - **`OPERATOR_PRIVATE_KEY`:** Never hardcode EVM wallet private keys in code or config files (`hardhat.config.ts`, `.env`). Always use environment variables supplied at runtime or via secure secret managers (e.g., GitHub Secrets, Vault).
-   - **`TELEGRAM_BOT_TOKEN` & `NFT_STORAGE_API_KEY`:** Must remain strictly private.
-
-2. **Protecting & Hiding the CoinGecko API Key:**
-   - In frontend applications built with Vite, environment variables prefixed with `VITE_` (e.g., `VITE_COINGECKO_API_KEY`) are bundled into client-side JavaScript code and can be extracted by end users.
-   - **Client-Side Mode (Default):** For demo purposes, public repositories should rely on public endpoints (`https://api.coingecko.com/api/v3`) without requiring or exposing paid PRO keys. Demo keys (`x_cg_demo_api_key`) can be placed in local `.env.local` files which are excluded by `.gitignore`.
-   - **Production Architecture (Recommended for Open Source):**
-     - **API Proxy / Reverse Proxy:** Route requests through a backend server or Serverless Edge Function (e.g., Vercel Serverless Function, Cloudflare Worker, or Nginx).
-     - The proxy injects the confidential API key header (`x-cg-pro-api-key` or `x-cg-demo-api-key`) server-side before forwarding the request to CoinGecko, making the key invisible to website visitors and public repository code.
-
-3. **Environment Files Handling:**
-   - `.env.example` contains **ONLY** placeholder variable definitions and mock values.
-   - `.gitignore` is pre-configured to block `.env`, `.env.local`, `.env.production`, and `.env.development` from being tracked by Git.
+1. **Client-Side API Key Protection:**
+   - In Vite applications, environment variables prefixed with `VITE_` are exposed in client bundle code.
+   - For open-source usage, BlotChain connects by default to CoinGecko's public endpoint (`https://api.coingecko.com/api/v3`) without exposing private API keys.
+2. **Local Environment Variables:**
+   - Optional demo keys (`x_cg_demo_api_key`) should be defined in a `.env.local` file (ignored by `.git`).
+   - `.env.example` provides template configurations without sensitive secrets.
 
 ---
 
@@ -171,7 +195,7 @@ When publishing or open-sourcing this repository, strict security measures must 
 
 ### Prerequisites
 - **Node.js:** v18.0.0 or higher
-- **pnpm** or **npm**
+- **npm** or **bun** / **pnpm**
 
 ### 1. Clone the Repository
 ```bash
@@ -181,37 +205,21 @@ cd BlotChain
 
 ### 2. Install Dependencies
 ```bash
-# Install frontend dependencies
 npm install
-
-# Install automation layer dependencies
-cd automation/shared && pnpm install
-cd ../contract && pnpm install
-cd ../bot && pnpm install
-cd ../..
 ```
 
 ### 3. Environment Configuration
 Create a `.env.local` file in the root directory:
 ```env
-# Optional: CoinGecko API Configuration
 VITE_COINGECKO_BASE_URL=https://api.coingecko.com/api/v3
 VITE_COINGECKO_API_KEY=
-
-# Automation Layer Configuration (Keep secret in production)
-RPC_URL=https://rpc.sepolia.org
-OPERATOR_PRIVATE_KEY=your_private_key_here
-NFT_STORAGE_API_KEY=your_nft_storage_key
-CONTRACT_ADDRESS=your_deployed_contract_address
-TELEGRAM_BOT_TOKEN=your_telegram_bot_token
-TELEGRAM_CHAT_ID=your_telegram_chat_id
 ```
 
 ### 4. Run Development Server
 ```bash
 npm run dev
 ```
-Navigate to `http://localhost:5173` in your browser.
+Open `http://localhost:3000` (or the port indicated in your console) in your browser.
 
 ### 5. Build for Production
 ```bash
@@ -220,48 +228,23 @@ npm run build
 
 ---
 
-## 🔄 Data Flow Pipeline
+## 🚀 Product Roadmap & Backlog
 
-```
-┌─────────────────────────┐     ┌──────────────────────────┐
-│  CoinGecko Market API   │     │  MEV Threat Intelligence │
-└───────────┬─────────────┘     └────────────┬─────────────┘
-            │                                │
-            ▼                                ▼
-┌──────────────────────────────────────────────────────────┐
-│      Services Layer (coinGeckoApi.ts / mevShieldApi.ts)  │
-└───────────────────────────┬──────────────────────────────┘
-                            │
-                            ▼
-┌──────────────────────────────────────────────────────────┐
-│            Data Transformers & Physics Engine            │
-│       (dataTransformer.ts / collisionDetection.ts)       │
-└───────────────────────────┬──────────────────────────────┘
-                            │
-                            ▼
-┌──────────────────────────────────────────────────────────┐
-│                 React Context / State Hooks               │
-│               (useRealTimeData / useMEVShieldData)       │
-└──────────┬────────────────────┬──────────────────┬───────┘
-           │                    │                  │
-           ▼                    ▼                  ▼
-  ┌─────────────────┐  ┌─────────────────┐  ┌───────────────┐
-  │ 2D SVG Renderer │  │ 3D Three.js     │  │ WebXR VR      │
-  │ (Dashboard.tsx) │  │ (Dashboard3D)   │  │ (DashboardVR) │
-  └─────────────────┘  └─────────────────┘  └───────────────┘
-```
+The following features represent planned enhancements and future architecture milestones:
 
----
+### 1. MEV Shield & On-Chain Threat Analytics
+- **Live Threat Monitoring:** Detection and real-time visualization of sandwich attacks, frontrunning, and arbitrage exploitation.
+- **Risk Scoring & Protection:** Dynamic MEV risk metrics, transaction bundle simulation, and private RPC protection status indicators.
 
-## 🚀 Roadmap & Backlog
+### 2. Web3 NFT State Snapshot & Automation Layer
+- **Automated Snapshot Bot:** Headless Puppeteer bot for capturing high-resolution dashboard canvas snapshots in `snapshotMode=1`.
+- **On-Chain Persistence:** Solidity ERC-721 smart contract (`BlotChainSnapshot.sol`) for minting visual state snapshots as NFTs.
+- **Decentralized Storage & Alerts:** Metadata and image pinning to IPFS/NFT.Storage, accompanied by automated Telegram channel alerts.
 
-- [x] Multi-mode rendering (2D SVG, 3D WebGL, WebXR VR).
-- [x] MEV Shield threat intelligence panel.
-- [x] Web3 NFT snapshot automation layer via Hardhat and Puppeteer.
-- [x] Time-series price history modal and sparklines.
-- [ ] Cross-asset correlation coefficient heatmap computation.
-- [ ] WebGL clustering for 500+ simultaneously rendered nodes.
-- [ ] Serverless API Proxy for zero-exposure CoinGecko key management.
+### 3. Asset Analytics & WebGL Scaling
+- **Return Correlation Matrix:** Cross-asset return correlation heatmap computation across multiple time windows.
+- **High-Scale Spatial Rendering:** Optimization of the 3D WebGL rendering pipeline to support fluid visualization of 500+ simultaneous crypto assets.
+- **Serverless API Proxy:** Production Edge Proxy integration to completely insulate API keys from client-side network inspection.
 
 ---
 
