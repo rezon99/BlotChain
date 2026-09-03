@@ -24,8 +24,9 @@ export async function captureSnapshot(url: string): Promise<SnapshotResult> {
     try {
       // Navigate to the provided URL (with a 15-second timeout) and wait for network idle
       await page.goto(url, { waitUntil: 'networkidle', timeout: 15000 });
-    } catch (error: any) {
-      throw new Error(`Dashboard failed to load or timed out after 15 seconds: ${error.message}`);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`Dashboard failed to load or timed out after 15 seconds: ${message}`);
     }
 
     // Wait for the breathing and particle animations to settle (fixed 2.5s delay)

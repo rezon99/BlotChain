@@ -295,8 +295,8 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
       const r = getNodeRadius(node.size);
 
       // Sphere Material: Wireframe Mode support (`isStructure`)
-      const isPulsing = (node as any).isPulsing;
-      const threatColor = (node as any).threatColor || node.color;
+      const isPulsing = 'isPulsing' in node ? Boolean(node.isPulsing) : false;
+      const threatColor = 'threatColor' in node && typeof node.threatColor === 'string' ? node.threatColor : node.color;
 
       const sphereMat = new THREE.MeshStandardMaterial({
         color: new THREE.Color(threatColor),

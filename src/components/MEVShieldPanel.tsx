@@ -12,7 +12,7 @@ export const MEVShieldPanel: React.FC<MEVShieldPanelProps> = ({ payload }) => {
 
   if (!payload) return null;
 
-  const { riskAssessment, status, userAddress } = payload;
+  const { riskAssessment, userAddress } = payload;
   const isProtected = riskAssessment.actionTaken === 'ROUTED_PRIVATE_RPC';
   const isHighRisk = riskAssessment.riskScore >= 0.7;
 
