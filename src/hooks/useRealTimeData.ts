@@ -5,6 +5,10 @@ import {
   transformCoinDataToNodes,
   generateConnectionsFromRealData
 } from '../utils/dataTransformer';
+import {
+  generateMockNodes,
+  generateMockConnections
+} from '../utils/dataSimulator';
 
 export function useRealTimeData(
   refreshInterval: number = 30000,
@@ -39,6 +43,14 @@ export function useRealTimeData(
     } catch (err) {
       if (fetchId !== activeFetchId.current) return;
       console.error('Failed to fetch data:', err);
+      setNodes((prev) => {
+        if (prev.length === 0) {
+          const fallback = generateMockNodes();
+          setConnections(generateMockConnections(fallback));
+          return fallback;
+        }
+        return prev;
+      });
       setError(err instanceof Error ? err.message : 'Failed to fetch data');
       setLoading(false);
     }
