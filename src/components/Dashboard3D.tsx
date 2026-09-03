@@ -161,6 +161,43 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
     });
   }, []);
 
+  const exportToJson = useCallback(() => {
+    const data = {
+      timestamp: new Date().toISOString(),
+      mode,
+      viewMode: '3d',
+      nodes,
+      connections
+    };
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `blotchain-3d-export-${mode}-${new Date().getTime()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [mode, nodes, connections]);
+
+  const exportToPng = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    try {
+      const pngUrl = canvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = pngUrl;
+      a.download = `blotchain-3d-snapshot-${mode}-${new Date().getTime()}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error('Failed to export PNG:', err);
+    }
+  }, [mode]);
+
   // Set up three.js scene inside useEffect
   useEffect(() => {
     const container = containerRef.current;
@@ -381,7 +418,7 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
       scene.add(line);
 
       // Floating flow animation particle
-      const flowColor = conn.flowDirection === 'inflow' ? '#22c55e' : '#f43f5e';
+      const flowColor = conn.direction === 'in' ? '#22c55e' : '#f43f5e';
       const particleMat = new THREE.MeshBasicMaterial({
         color: flowColor,
         transparent: true,
@@ -553,6 +590,29 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
       window.removeEventListener('pointerdown', handlePointerDown);
       resizeObserver.disconnect();
       controls.dispose();
+
+      // Dispose all geometries, materials, and textures in scene to prevent WebGL leaks
+      scene.traverse(object => {
+        const mesh = object as THREE.Mesh;
+        if (mesh.geometry) {
+          mesh.geometry.dispose();
+        }
+        if (mesh.material) {
+          const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+          materials.forEach(mat => {
+            if ('map' in mat && mat.map) {
+              (mat.map as THREE.Texture).dispose();
+            }
+            mat.dispose();
+          });
+        }
+      });
+
+      sphereGeo.dispose();
+      particleGeo.dispose();
+      lineMaterial.dispose();
+      activeLineMaterial.dispose();
+
       renderer.dispose();
       scene.clear();
       document.body.style.cursor = 'default';
@@ -704,9 +764,8 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
         setRefreshInterval={setRefreshInterval}
         animationSettings={animationSettings}
         setAnimationSettings={setAnimationSettings}
-        onResetLayout={() => {}}
-        onExportJson={() => {}}
-        onExportPng={() => {}}
+        onExportJson={exportToJson}
+        onExportPng={exportToPng}
       />
 
       <ComparisonPanel

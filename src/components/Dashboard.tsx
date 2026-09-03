@@ -244,19 +244,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
       y: clampedY
     };
 
-    setManualPositions(prev => {
-      const updated = {
-        ...prev,
-        [draggingNodeId]: newPos
-      };
-      localStorage.setItem('blotchain_positions', JSON.stringify(updated));
-      return updated;
-    });
+    setManualPositions(prev => ({
+      ...prev,
+      [draggingNodeId]: newPos
+    }));
   }, [draggingNodeId, dragOffset, nodes, viewport]);
 
   const handleMouseUp = useCallback(() => {
-    setDraggingNodeId(null);
-  }, []);
+    if (draggingNodeId) {
+      setDraggingNodeId(null);
+      localStorage.setItem('blotchain_positions', JSON.stringify(manualPositions));
+    }
+  }, [draggingNodeId, manualPositions]);
 
   const resetLayout = useCallback(() => {
     setManualPositions({});
