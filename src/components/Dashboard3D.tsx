@@ -1,10 +1,8 @@
 import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { Eye, EyeOff, Layers, RefreshCw, Compass, ChevronDown, ChevronUp } from 'lucide-react';
-import { Node as NodeType, TooltipData, AnimationSettings } from '../types';
+import { Node as NodeType, TooltipData, AnimationSettings, DashboardMode } from '../types';
 import { useRealTimeData } from '../hooks/useRealTimeData';
-import { useMEVShieldData } from '../hooks/useMEVShieldData';
 import { Header } from './Header';
 import { Legend } from './Legend';
 import { LiveStatus } from './LiveStatus';
@@ -15,23 +13,18 @@ import { ComparisonPanel } from './ComparisonPanel';
 import { LoadingSpinner } from './LoadingSpinner';
 import { ErrorDisplay } from './ErrorDisplay';
 
-interface Node3D extends NodeType {
-  x3d: number;
-  y3d: number;
-  z3d: number;
-  opacity3d: number;
-}
-
 interface Dashboard3DProps {
+  mode: DashboardMode;
+  onModeSwitch: (mode: DashboardMode) => void;
   viewMode?: '2d' | '3d' | 'vr';
   onViewModeSwitch?: (viewMode: '2d' | '3d' | 'vr') => void;
-  useMevShield?: boolean;
 }
 
 export const Dashboard3D: React.FC<Dashboard3DProps> = ({
+  mode,
+  onModeSwitch,
   viewMode = '3d',
-  onViewModeSwitch,
-  useMevShield = true
+  onViewModeSwitch
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -41,44 +34,10 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
     return saved ? parseInt(saved, 10) : 30000;
   });
 
-  const realTimeData = useRealTimeData(refreshInterval);
-  const mevShieldData = useMEVShieldData();
-
-  const { nodes, connections, loading, error, lastUpdate, refetch } = useMevShield
-    ? {
-        nodes: mevShieldData.nodes,
-        connections: mevShieldData.connections,
-        loading: mevShieldData.loading,
-        error: null,
-        lastUpdate: mevShieldData.currentPayload ? new Date(mevShieldData.currentPayload.timestamp * 1000) : new Date(),
-        refetch: () => {}
-      }
-    : realTimeData;
+  const { nodes, connections, loading, error, lastUpdate, refetch } = useRealTimeData(mode, refreshInterval);
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
   const [activeChartNode, setActiveChartNode] = useState<NodeType | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
-
-  // Anatomy features states
-  const [isIsolated, setIsIsolated] = useState<boolean>(false);
-  const [isStructure, setIsStructure] = useState<boolean>(false);
-  const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
-  const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
-  const [ambientColor, setAmbientColor] = useState<string>('#3b82f6'); // default blue glow
-  const [isFilterCollapsed, setIsFilterCollapsed] = useState<boolean>(true);
-  const [isToolsCollapsed, setIsToolsCollapsed] = useState<boolean>(true);
-
-  // Screen projected labels state (Imperative HTML projection)
-  const [projectedLabels, setProjectedLabels] = useState<Array<{
-    id: string;
-    name: string;
-    category: string;
-    color: string;
-    isHub: boolean;
-    x: number;
-    y: number;
-    visible: boolean;
-    opacity: number;
-  }>>([]);
 
   const [animationSettings, setAnimationSettings] = useState<AnimationSettings>(() => {
     const saved = localStorage.getItem('blotchain_animation_settings');
@@ -101,6 +60,7 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
   const nodes3D = useMemo(() => {
     if (nodes.length === 0) return [];
 
+    // Separate nodes into different types to form hierarchical 3D shells
     const hubs = nodes.filter(n => n.isHub);
     const cex = nodes.filter(n => n.category === 'CEX' && !n.isHub);
     const others = nodes.filter(n => !n.isHub && n.category !== 'CEX');
@@ -137,7 +97,7 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
     const phiGold = Math.PI * (3.0 - Math.sqrt(5.0)); // golden angle in radians
 
     others.forEach((node, idx) => {
-      const radius = 28 + (idx % 3) * 2; // subtle radial variance
+      const radius = 28 + (idx % 3) * 2; // subtle radial variance to prevent perfect alignment overlap
       const y = 1.0 - (idx / (count - 1)) * 2.0; // y goes from 1 to -1
       const radiusAtY = Math.sqrt(1.0 - y * y); // radius at y
       const theta = phiGold * idx; // golden angle increment
@@ -198,46 +158,20 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
     });
   }, []);
 
-  // Set up camera target animation state
-  const cameraTargetRef = useRef<THREE.Vector3 | null>(null);
-  const controlsTargetRef = useRef<THREE.Vector3 | null>(null);
-  const controlsRef = useRef<OrbitControls | null>(null);
-
-  // Focus on a particular node using cinematic camera lerp
-  const focusOnNode = useCallback((nodeId: string | null) => {
-    setFocusedNodeId(nodeId);
-    if (!nodeId) {
-      // Reset position to default view
-      cameraTargetRef.current = new THREE.Vector3(0, 15, 55);
-      controlsTargetRef.current = new THREE.Vector3(0, 0, 0);
-      setAmbientColor('#3b82f6'); // default blue
-      return;
-    }
-
-    const node = filteredNodes3DMap.get(nodeId);
-    if (!node) return;
-
-    // Set cinematic camera target position (with offset to look from side)
-    const targetCam = new THREE.Vector3(node.x3d, node.y3d, node.z3d).add(new THREE.Vector3(0, 5, 15));
-    cameraTargetRef.current = targetCam;
-    controlsTargetRef.current = new THREE.Vector3(node.x3d, node.y3d, node.z3d);
-
-    // Dynamic glow transition
-    setAmbientColor(node.color);
-  }, [filteredNodes3DMap]);
-
   // Set up three.js scene inside useEffect
   useEffect(() => {
     const container = containerRef.current;
     const canvas = canvasRef.current;
     if (!container || !canvas || filteredNodes3D.length === 0) return;
 
+    // Get real canvas dimension
     const width = container.clientWidth;
     const height = container.clientHeight;
 
     // Create scene with deep background and subtle fog
     const scene = new THREE.Scene();
-    scene.background = null; // transparent background so we can see the ambient glow gradient overlay div
+    scene.background = new THREE.Color('#0f172a'); // slate-900
+    scene.fog = new THREE.FogExp2('#0f172a', 0.015);
 
     // Camera
     const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 1000);
@@ -247,25 +181,25 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
     const renderer = new THREE.WebGLRenderer({
       canvas,
       antialias: true,
-      alpha: true,
+      alpha: false,
       powerPreference: 'high-performance'
     });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(width, height);
 
     // Lights
-    const ambientLight = new THREE.AmbientLight('#1e293b', 1.8);
+    const ambientLight = new THREE.AmbientLight('#1e293b', 1.5); // soft slate ambient
     scene.add(ambientLight);
 
-    const pointLight = new THREE.PointLight('#ffffff', 2.5, 120);
+    const pointLight = new THREE.PointLight('#ffffff', 2, 120);
     pointLight.position.set(0, 10, 0);
     scene.add(pointLight);
 
-    const dirLight1 = new THREE.DirectionalLight('#3b82f6', 1.2);
+    const dirLight1 = new THREE.DirectionalLight('#3b82f6', 1); // blue side light
     dirLight1.position.set(30, 20, 20);
     scene.add(dirLight1);
 
-    const dirLight2 = new THREE.DirectionalLight('#8b5cf6', 1.2);
+    const dirLight2 = new THREE.DirectionalLight('#8b5cf6', 1); // purple counter-light
     dirLight2.position.set(-30, -20, -20);
     scene.add(dirLight2);
 
@@ -275,18 +209,72 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
     controls.dampingFactor = 0.05;
     controls.maxDistance = 150;
     controls.minDistance = 5;
-    controlsRef.current = controls;
 
     // Shared sphere geometry
     const sphereGeo = new THREE.SphereGeometry(1, 32, 32);
 
-    // Hold refs to meshes for direct color, scale, and structure updates
+    // Map to hold references to Three.js Object3D for raycasting and hover
     const nodeMeshes: THREE.Group[] = [];
     const nodeIdToMesh = new Map<string, THREE.Group>();
 
+    // Dynamic scale helper based on node.size
     const getNodeRadius = (size: number) => size / 22;
 
-    // Render Node Spheres
+    // Texture creation helper for dynamic high-quality sprites
+    const createTextTexture = (name: string, category: string, isHub: boolean, opacity: number) => {
+      const textCanvas = document.createElement('canvas');
+      textCanvas.width = 256;
+      textCanvas.height = 128;
+      const ctx = textCanvas.getContext('2d');
+      if (!ctx) return null;
+
+      // Transparent background
+      ctx.clearRect(0, 0, 256, 128);
+
+      // Label background bubble
+      ctx.fillStyle = `rgba(15, 23, 42, ${0.85 * opacity})`;
+      ctx.strokeStyle = `rgba(71, 85, 105, ${0.6 * opacity})`;
+      ctx.lineWidth = 2;
+
+      const rectX = 16;
+      const rectY = 16;
+      const rectW = 224;
+      const rectH = 80;
+      const radius = 12;
+
+      // Draw rounded rectangle
+      ctx.beginPath();
+      ctx.moveTo(rectX + radius, rectY);
+      ctx.lineTo(rectX + rectW - radius, rectY);
+      ctx.quadraticCurveTo(rectX + rectW, rectY, rectX + rectW, rectY + radius);
+      ctx.lineTo(rectX + rectW, rectY + rectH - radius);
+      ctx.quadraticCurveTo(rectX + rectW, rectY + rectH, rectX + rectW - radius, rectY + rectH);
+      ctx.lineTo(rectX + radius, rectY + rectH);
+      ctx.quadraticCurveTo(rectX, rectY + rectH, rectX, rectY + rectH - radius);
+      ctx.lineTo(rectX, rectY + radius);
+      ctx.quadraticCurveTo(rectX, rectY, rectX + radius, rectY);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Draw primary text (Name)
+      ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+      ctx.font = 'bold 24px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(name, 128, 44);
+
+      // Draw secondary text (Category)
+      ctx.fillStyle = `rgba(148, 163, 184, ${0.9 * opacity})`; // slate-400
+      ctx.font = '500 16px system-ui, sans-serif';
+      ctx.fillText(isHub ? 'Hub' : category, 128, 76);
+
+      const texture = new THREE.CanvasTexture(textCanvas);
+      texture.minFilter = THREE.LinearFilter;
+      return texture;
+    };
+
+    // Render Node Spheres & Text Sprites
     filteredNodes3D.forEach(node => {
       const nodeGroup = new THREE.Group();
       nodeGroup.position.set(node.x3d, node.y3d, node.z3d);
@@ -294,37 +282,59 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
 
       const r = getNodeRadius(node.size);
 
-      // Sphere Material: Wireframe Mode support (`isStructure`)
-      const isPulsing = 'isPulsing' in node ? Boolean(node.isPulsing) : false;
-      const threatColor = 'threatColor' in node && typeof node.threatColor === 'string' ? node.threatColor : node.color;
+      // Material with glowing emissive category brand color
+      const isSelected = selectedNodes.has(node.id);
+      const isHighlighted = selectedNodes.size === 0 || selectedNodes.has(node.id);
+      const finalOpacity = node.opacity3d * (isHighlighted ? 1.0 : 0.25);
 
       const sphereMat = new THREE.MeshStandardMaterial({
-        color: new THREE.Color(threatColor),
-        roughness: 0.15,
-        metalness: 0.2,
+        color: new THREE.Color(node.color),
+        roughness: 0.2,
+        metalness: 0.1,
         transparent: true,
-        wireframe: isStructure,
-        opacity: node.opacity3d,
-        emissive: new THREE.Color(threatColor),
-        emissiveIntensity: isPulsing ? 0.7 : (node.isHub ? 0.35 : 0.15)
+        opacity: finalOpacity,
+        emissive: new THREE.Color(node.color),
+        emissiveIntensity: isSelected ? 1.0 : (node.isHub ? 0.3 : 0.15)
       });
-      sphereMesh.userData = { isPulsing, threatColor };
 
       const sphereMesh = new THREE.Mesh(sphereGeo, sphereMat);
       sphereMesh.scale.setScalar(r);
-      sphereMesh.userData = { isPulsing, threatColor };
       nodeGroup.add(sphereMesh);
+
+      // Dynamic Sprite Label
+      const labelTexture = createTextTexture(node.name, node.category, !!node.isHub, finalOpacity);
+      if (labelTexture) {
+        const spriteMat = new THREE.SpriteMaterial({
+          map: labelTexture,
+          transparent: true,
+          opacity: finalOpacity,
+          depthWrite: false
+        });
+        const sprite = new THREE.Sprite(spriteMat);
+        // Position label sprite directly above the node sphere, taking sphere radius into account
+        sprite.position.set(0, r + 1.8, 0);
+        sprite.scale.set(4.5, 2.25, 1);
+        nodeGroup.add(sprite);
+      }
 
       scene.add(nodeGroup);
       nodeMeshes.push(nodeGroup);
       nodeIdToMesh.set(node.id, nodeGroup);
     });
 
-    // Create Connection Lines
+    // Create Connection Lines (3D paths)
     const lineMaterial = new THREE.LineBasicMaterial({
-      color: '#475569',
+      color: '#475569', // slate-600
       transparent: true,
-      opacity: 0.3,
+      opacity: 0.35,
+      depthWrite: false
+    });
+
+    const activeLineMaterial = new THREE.LineBasicMaterial({
+      color: '#3b82f6', // blue-500
+      transparent: true,
+      opacity: 0.85,
+      linewidth: 2, // only works on some platforms, standard fallback exists
       depthWrite: false
     });
 
@@ -335,9 +345,6 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
       progress: number;
       start: THREE.Vector3;
       end: THREE.Vector3;
-      sourceId: string;
-      targetId: string;
-      flow: number;
     }
 
     const connectionRefs: ConnectionRef[] = [];
@@ -351,28 +358,31 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
       const p1 = new THREE.Vector3(srcNode.x3d, srcNode.y3d, srcNode.z3d);
       const p2 = new THREE.Vector3(tgtNode.x3d, tgtNode.y3d, tgtNode.z3d);
 
+      // Implement the 20% Connection Guide Lines Collision Buffer
       const vector = new THREE.Vector3().subVectors(p2, p1);
       const totalLen = vector.length();
 
-      const r1 = getNodeRadius(srcNode.size) * 1.20;
-      const r2 = getNodeRadius(tgtNode.size) * 1.20;
+      const r1 = getNodeRadius(srcNode.size) * 1.20; // 20% protective offset
+      const r2 = getNodeRadius(tgtNode.size) * 1.20; // 20% protective offset
 
-      if (totalLen <= r1 + r2) return;
+      if (totalLen <= r1 + r2) return; // safety, avoid degenerate lines
 
+      // Safe connection path offset bounds
       const p1Offset = p1.clone().addScaledVector(vector.clone().normalize(), r1);
       const p2Offset = p2.clone().addScaledVector(vector.clone().normalize(), -(r2));
 
-      // Line
+      // Draw connection line
       const lineGeo = new THREE.BufferGeometry().setFromPoints([p1Offset, p2Offset]);
-      const line = new THREE.Line(lineGeo, lineMaterial);
+      const isConnectionHighlighted = selectedNodes.size === 0 || selectedNodes.has(conn.source) || selectedNodes.has(conn.target);
+      const line = new THREE.Line(lineGeo, isConnectionHighlighted ? activeLineMaterial : lineMaterial);
       scene.add(line);
 
-      // Particle
-      const particleColor = conn.particles[0]?.color || (conn.direction === 'in' ? '#22c55e' : '#f43f5e');
+      // Floating flow animation particle
+      const flowColor = conn.flowDirection === 'inflow' ? '#22c55e' : '#f43f5e';
       const particleMat = new THREE.MeshBasicMaterial({
-        color: particleColor,
+        color: flowColor,
         transparent: true,
-        opacity: 0.9
+        opacity: isConnectionHighlighted ? 0.9 : 0.25
       });
       const particle = new THREE.Mesh(particleGeo, particleMat);
       particle.position.copy(p1Offset);
@@ -382,19 +392,17 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
         line,
         particle,
         speed: 0.003 * animationSettings.particleSpeed * (Math.random() * 0.5 + 0.75),
-        progress: Math.random(),
+        progress: Math.random(), // random start offset for fluid continuous flow visual
         start: p1Offset,
-        end: p2Offset,
-        sourceId: conn.source,
-        targetId: conn.target,
-        flow: conn.flow
+        end: p2Offset
       });
     });
 
-    // Raycasting for interactive click/hover
+    // Raycasting for Mouse Interaction
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
-    let localHoveredId: string | null = null;
+    let hoveredNodeGroup: THREE.Group | null = null;
+    const baseHoveredScale = new THREE.Vector3(1, 1, 1);
 
     const getRaycastIntersect = (clientX: number, clientY: number) => {
       const rect = renderer.domElement.getBoundingClientRect();
@@ -402,10 +410,13 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
       mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
 
       raycaster.setFromCamera(mouse, camera);
+
+      // Find children of our node meshes (the sphere mesh)
       const targets = nodeMeshes.map(group => group.children[0]);
       const intersects = raycaster.intersectObjects(targets);
 
       if (intersects.length > 0) {
+        // Return parent Group representing the Node
         return intersects[0].object.parent as THREE.Group;
       }
       return null;
@@ -415,11 +426,19 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
       const intersectedGroup = getRaycastIntersect(e.clientX, e.clientY);
 
       if (intersectedGroup) {
-        const nodeData = intersectedGroup.userData.nodeData as NodeType;
-        if (localHoveredId !== nodeData.id) {
-          localHoveredId = nodeData.id;
-          setHoveredNodeId(nodeData.id);
+        if (hoveredNodeGroup !== intersectedGroup) {
+          // Reset previous hovered state
+          if (hoveredNodeGroup) {
+            hoveredNodeGroup.children[0].scale.copy(baseHoveredScale);
+          }
 
+          hoveredNodeGroup = intersectedGroup;
+          const sphereMesh = hoveredNodeGroup.children[0];
+          baseHoveredScale.copy(sphereMesh.scale);
+          sphereMesh.scale.multiplyScalar(1.25); // increase hover scale
+
+          // Show Tooltip
+          const nodeData = hoveredNodeGroup.userData.nodeData as NodeType;
           setTooltip({
             node: nodeData,
             x: e.clientX,
@@ -428,6 +447,7 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
           });
           document.body.style.cursor = 'pointer';
         } else {
+          // Keep tooltip following the cursor
           setTooltip(prev => ({
             ...prev,
             x: e.clientX,
@@ -435,9 +455,9 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
           }));
         }
       } else {
-        if (localHoveredId !== null) {
-          localHoveredId = null;
-          setHoveredNodeId(null);
+        if (hoveredNodeGroup) {
+          hoveredNodeGroup.children[0].scale.copy(baseHoveredScale);
+          hoveredNodeGroup = null;
           setTooltip(prev => ({ ...prev, visible: false }));
           document.body.style.cursor = 'default';
         }
@@ -449,9 +469,7 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
       if (clickedGroup) {
         const nodeData = clickedGroup.userData.nodeData as NodeType;
 
-        // Focus on node with cinematic glide
-        focusOnNode(nodeData.id);
-
+        // Trigger click selection/cascade
         if (nodeData.isHub) {
           toggleComparison(nodeData.id);
         } else {
@@ -468,145 +486,51 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
     gridHelper.position.y = -18;
     scene.add(gridHelper);
 
-    // Animation loop variables
+    // Animation Loop
     let animationFrameId: number;
     const clock = new THREE.Clock();
-    const tempV = new THREE.Vector3();
 
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate);
 
-      // Cinematic Glide: smoothly interpolate camera position & controls target
-      if (cameraTargetRef.current) {
-        camera.position.lerp(cameraTargetRef.current, 0.05);
-        if (camera.position.distanceTo(cameraTargetRef.current) < 0.01) {
-          cameraTargetRef.current = null; // stop lerp when close enough
-        }
-      }
-      if (controlsTargetRef.current) {
-        controls.target.lerp(controlsTargetRef.current, 0.05);
-        if (controls.target.distanceTo(controlsTargetRef.current) < 0.01) {
-          controlsTargetRef.current = null;
-        }
-      }
-
+      // Orbit control updates
       controls.update();
 
       const time = clock.getElapsedTime();
-      const widthHalf = width / 2;
-      const heightHalf = height / 2;
 
-      // Determine active focus neighborhood filter
-      const activeFilterId = focusedNodeId || localHoveredId;
-
-      // Calculate directly connected neighborhood ids if Isolation Mode is on
-      const connectedNeighbors = new Set<string>();
-      if (activeFilterId) {
-        connectedNeighbors.add(activeFilterId);
-        connections.forEach(c => {
-          if (c.source === activeFilterId) connectedNeighbors.add(c.target);
-          if (c.target === activeFilterId) connectedNeighbors.add(c.source);
-        });
-      }
-
-      // 1. Update Node Spheres (LOD, Breathing, Isolate, Structure)
-      const labelUpdates: typeof projectedLabels = [];
-
+      // Node breathing animation and subtle floating
       nodeMeshes.forEach(group => {
-        const node = group.userData.nodeData as Node3D;
+        const node = group.userData.nodeData as NodeType;
         const sphereMesh = group.children[0] as THREE.Mesh;
         const sphereMat = sphereMesh.material as THREE.MeshStandardMaterial;
 
-        // Isolate & hover fading calculation
-        let targetOpacity = node.opacity3d;
-        if (isIsolated && activeFilterId) {
-          const isNeighbor = connectedNeighbors.has(node.id);
-          targetOpacity = isNeighbor ? node.opacity3d : 0.12;
-        }
-        sphereMat.opacity = THREE.MathUtils.lerp(sphereMat.opacity, targetOpacity, 0.1);
-
-        // Subtly update wireframe setting in real time
-        sphereMat.wireframe = isStructure;
-
-        // Subtle float
+        // Subtle floating movement
         const floatOffset = Math.sin(time * 0.8 + node.size) * 0.05;
         group.position.y = node.y3d + floatOffset;
 
-        // Distance LOD & projection
-        const distToCam = group.position.distanceTo(camera.position);
-        const isFar = distToCam > 60;
-
-        // PROJECT node position to screen coordinate space
-        tempV.copy(group.position);
-        tempV.project(camera);
-
-        const isBehindCamera = tempV.z > 1;
-        const screenX = (tempV.x * widthHalf) + widthHalf;
-        const screenY = -(tempV.y * heightHalf) + heightHalf;
-
-        // Build list of labels to project into DOM overlay
-        labelUpdates.push({
-          id: node.id,
-          name: node.name,
-          category: node.category,
-          color: node.color,
-          isHub: !!node.isHub,
-          x: screenX,
-          y: screenY,
-          visible: !isBehindCamera && !isFar,
-          opacity: targetOpacity
-        });
-
-        // Glowing Emissive breathing
-        const baseEmissive = selectedNodes.has(node.id) ? 1.0 : (node.isHub ? 0.35 : 0.15);
-        const emissiveDimFactor = isFar ? 0.4 : 1.0;
-
+        // Breathing animation in emissive intensity
         if (animationSettings.enabled) {
-          const breathe = Math.sin(time * 1.5 + node.size) * 0.5 + 0.5;
-          sphereMat.emissiveIntensity = (baseEmissive + breathe * 0.15 * animationSettings.breathingIntensity) * emissiveDimFactor;
-        } else {
-          sphereMat.emissiveIntensity = baseEmissive * emissiveDimFactor;
+          const breathe = Math.sin(time * 1.5 + node.size) * 0.5 + 0.5; // 0 to 1
+          sphereMat.emissiveIntensity = (selectedNodes.has(node.id) ? 1.0 : (node.isHub ? 0.3 : 0.15)) +
+            breathe * 0.12 * animationSettings.breathingIntensity;
         }
       });
 
-      // Update projected labels in React state
-      setProjectedLabels(labelUpdates);
-
-      // 2. Update connection lines and flow indicators
-      connectionRefs.forEach(ref => {
-        // Line connection highlighted state
-        let targetLineOpacity = 0.3;
-        const isHighlighted = selectedNodes.size === 0 || selectedNodes.has(ref.sourceId) || selectedNodes.has(ref.targetId);
-
-        if (isIsolated && activeFilterId) {
-          const isDirectLine = (ref.sourceId === activeFilterId && connectedNeighbors.has(ref.targetId)) ||
-                               (ref.targetId === activeFilterId && connectedNeighbors.has(ref.sourceId));
-          targetLineOpacity = isDirectLine ? 0.85 : 0.05;
-        } else {
-          targetLineOpacity = isHighlighted ? 0.55 : 0.12;
-        }
-
-        const lineMat = ref.line.material as THREE.LineBasicMaterial;
-        lineMat.opacity = THREE.MathUtils.lerp(lineMat.opacity, targetLineOpacity, 0.1);
-        lineMat.color.set(targetLineOpacity > 0.5 ? '#3b82f6' : '#475569');
-
-        // Particle update
-        if (animationSettings.enabled) {
-          ref.particle.visible = targetLineOpacity > 0.1;
+      // Update moving particles
+      if (animationSettings.enabled) {
+        connectionRefs.forEach(ref => {
           ref.progress += ref.speed;
           if (ref.progress > 1) ref.progress = 0;
           ref.particle.position.lerpVectors(ref.start, ref.end, ref.progress);
-        } else {
-          ref.particle.visible = false;
-        }
-      });
+        });
+      }
 
       renderer.render(scene, camera);
     };
 
     animate();
 
-    // Resize
+    // Handle Resize
     const handleResize = () => {
       if (!container || !canvas) return;
       const w = container.clientWidth;
@@ -619,6 +543,7 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
     const resizeObserver = new ResizeObserver(handleResize);
     resizeObserver.observe(container);
 
+    // Clean up
     return () => {
       cancelAnimationFrame(animationFrameId);
       window.removeEventListener('pointermove', handlePointerMove);
@@ -629,7 +554,7 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
       scene.clear();
       document.body.style.cursor = 'default';
     };
-  }, [filteredNodes3D, filteredNodes3DMap, connections, selectedNodes, animationSettings, toggleComparison, isStructure, isIsolated, focusOnNode, focusedNodeId]);
+  }, [filteredNodes3D, filteredNodes3DMap, connections, selectedNodes, animationSettings, toggleComparison]);
 
   if (loading && nodes.length === 0) {
     return <LoadingSpinner />;
@@ -641,17 +566,10 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
 
   return (
     <div className="h-screen h-[100dvh] bg-slate-950 overflow-hidden flex flex-col relative">
-      {/* Ambient Dynamic Background Glow */}
-      <div
-        className="absolute inset-0 pointer-events-none transition-all duration-1000 ease-out"
-        style={{
-          background: `radial-gradient(circle at 50% 50%, ${ambientColor}22 0%, #020617 80%)`,
-          zIndex: 0
-        }}
-      />
-
       <Header
         lastUpdate={lastUpdate}
+        mode={mode}
+        onModeSwitch={onModeSwitch}
         onOpenSettings={() => setIsSettingsOpen(true)}
         selectedCount={selectedNodes.size}
         onClearSelection={clearSelection}
@@ -661,51 +579,12 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
 
       <div
         ref={containerRef}
-        className="relative flex-1 min-h-0 w-full z-10"
+        className="relative flex-1 min-h-0 w-full"
       >
         <canvas
           ref={canvasRef}
-          className="w-full h-full block focus:outline-none bg-transparent"
+          className="w-full h-full block focus:outline-none"
         />
-
-        {/* Imperative HTML projection labels overlay */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden select-none">
-          {projectedLabels.map(label => {
-            if (!label.visible) return null;
-
-            // Highlight label on hover or search focus
-            const isHovered = hoveredNodeId === label.id;
-            const isFocused = focusedNodeId === label.id;
-
-            return (
-              <div
-                key={label.id}
-                className="absolute top-0 left-0 -translate-x-1/2 -translate-y-1/2 pointer-events-auto transition-all duration-300"
-                style={{
-                  transform: `translate3d(${label.x}px, ${label.y - 25}px, 0) scale(${isHovered || isFocused ? 1.05 : 0.85})`,
-                  opacity: label.opacity,
-                  zIndex: isHovered || isFocused ? 50 : 10
-                }}
-              >
-                <div
-                  onClick={() => focusOnNode(label.id)}
-                  className="bg-slate-900 bg-opacity-80 backdrop-blur-md border border-slate-700/80 px-3 py-1 rounded-lg flex flex-col items-center shadow-lg hover:border-blue-500 cursor-pointer select-none"
-                  style={{
-                    boxShadow: isHovered || isFocused ? `0 0 15px ${label.color}44` : 'none',
-                    borderColor: isHovered || isFocused ? label.color : 'rgba(71, 85, 105, 0.8)'
-                  }}
-                >
-                  <span className="text-white text-[11px] font-bold tracking-wide whitespace-nowrap">
-                    {label.name}
-                  </span>
-                  <span className="text-gray-400 text-[8px] uppercase tracking-wider font-semibold">
-                    {label.isHub ? 'Primary Hub' : label.category}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
 
         {loading && nodes.length > 0 && (
           <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-blue-600/90 text-white px-4 py-1 rounded-full text-xs font-bold animate-pulse z-20">
@@ -713,71 +592,14 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
           </div>
         )}
 
-        {/* Anatomy Inspired Floating Interactive Tools */}
-        <div className="absolute top-4 left-4 z-20 flex flex-col gap-2">
-          {/* Instructions */}
-          <div className="bg-slate-900 bg-opacity-90 backdrop-blur-md border border-slate-800 rounded-xl p-3 max-w-[200px] shadow-xl overflow-hidden">
-            <div
-              className="flex items-center justify-between cursor-pointer select-none"
-              onClick={() => setIsToolsCollapsed(!isToolsCollapsed)}
-            >
-              <p className="text-white text-[11px] font-bold flex items-center gap-1">
-                <Compass size={13} className="text-blue-400" />
-                3D VIEWPORT TOOLS
-              </p>
-              <span className="text-gray-400">
-                {isToolsCollapsed ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
-              </span>
-            </div>
-            {!isToolsCollapsed && (
-              <div className="mt-2 pt-2 border-t border-slate-800 space-y-1 text-gray-400 text-[10px] font-medium leading-relaxed">
-                <p>• Rotate: Left-click + Drag</p>
-                <p>• Zoom: Scroll / Zoom button</p>
-                <p>• Pan: Right-click + Drag</p>
-                <p>• Click node labels to fly & focus</p>
-              </div>
-            )}
-          </div>
-
-          {/* Quick Action Button Drawer */}
-          <div className="flex gap-1.5 bg-slate-900 bg-opacity-90 backdrop-blur-md border border-slate-800 rounded-xl p-1.5 shadow-xl">
-            {/* Isolate Toggle */}
-            <button
-              onClick={() => setIsIsolated(!isIsolated)}
-              title={isIsolated ? "Show All Nodes" : "Isolate Selected/Hovered Cluster"}
-              className={`p-2 rounded-lg transition-all flex items-center gap-1.5 text-xs font-medium ${
-                isIsolated
-                  ? 'bg-blue-600 text-white shadow-lg'
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-slate-800'
-              }`}
-            >
-              {isIsolated ? <EyeOff size={15} /> : <Eye size={15} />}
-              <span>Isolate</span>
-            </button>
-
-            {/* Wireframe Structure Toggle */}
-            <button
-              onClick={() => setIsStructure(!isStructure)}
-              title={isStructure ? "Show Solid Nodes" : "Show Mesh Wireframes"}
-              className={`p-2 rounded-lg transition-all flex items-center gap-1.5 text-xs font-medium ${
-                isStructure
-                  ? 'bg-purple-600 text-white shadow-lg'
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-slate-800'
-              }`}
-            >
-              <Layers size={15} />
-              <span>Structure</span>
-            </button>
-
-            {/* Reset Camera Focus */}
-            <button
-              onClick={() => focusOnNode(null)}
-              title="Reset Viewport Camera"
-              className="p-2 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-slate-800 transition-all flex items-center gap-1.5 text-xs font-medium"
-            >
-              <RefreshCw size={15} />
-              <span>Reset</span>
-            </button>
+        {/* 3D Instructions Overlay */}
+        <div className="absolute top-4 left-4 z-10 bg-gray-900 bg-opacity-80 backdrop-blur-sm border border-gray-800 rounded-lg p-2.5 max-w-[200px] pointer-events-none">
+          <p className="text-white text-[11px] font-semibold mb-1">3D CONTROLS</p>
+          <div className="space-y-1 text-gray-400 text-[10px] font-medium">
+            <p>• Rotate: Left-click + Drag</p>
+            <p>• Zoom: Scroll wheel</p>
+            <p>• Pan: Right-click + Drag</p>
+            <p>• Click nodes to view history chart</p>
           </div>
         </div>
 
@@ -785,41 +607,30 @@ export const Dashboard3D: React.FC<Dashboard3DProps> = ({
         <LiveStatus
           nodeCount={nodes.length}
           connectionCount={connections.length}
+          mode={mode}
           className="absolute top-4 right-4 z-10"
         />
 
         <div className="absolute bottom-4 left-4 z-10 flex flex-col gap-2 max-w-[calc(100%-32px)]">
           <Legend
+            mode={mode}
             className="bg-gray-900 bg-opacity-90 backdrop-blur-sm border border-gray-700 rounded-lg p-3 w-full"
           />
           {/* Category Filter positioned vertically below the Legend panel */}
-          <div className="flex flex-col bg-gray-900 bg-opacity-95 backdrop-blur-sm rounded-lg border border-gray-700 overflow-hidden max-w-full">
-            <div
-              className="flex items-center justify-between px-3 py-1.5 cursor-pointer hover:bg-slate-800/50 transition-colors select-none"
-              onClick={() => setIsFilterCollapsed(!isFilterCollapsed)}
-            >
-              <span className="text-white text-[10px] font-bold uppercase tracking-wider">Categories</span>
-              <span className="text-gray-400">
-                {isFilterCollapsed ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-              </span>
-            </div>
-            {!isFilterCollapsed && (
-              <div className="flex items-center gap-1 sm:gap-2 p-1.5 border-t border-gray-800 overflow-x-auto max-w-full">
-                {categories.map(cat => (
-                  <button
-                    key={cat}
-                    onClick={() => setCategoryFilter(cat)}
-                    className={`px-2.5 py-1 text-[10px] sm:text-xs rounded-md transition-all whitespace-nowrap font-medium ${
-                      categoryFilter === cat
-                        ? 'bg-blue-600 text-white shadow-lg'
-                        : 'text-gray-400 hover:text-gray-200 hover:bg-slate-800'
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-            )}
+          <div className="flex items-center gap-1 sm:gap-2 bg-gray-900 bg-opacity-95 backdrop-blur-sm p-1.5 rounded-lg border border-gray-700 overflow-x-auto max-w-full">
+            {categories.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setCategoryFilter(cat)}
+                className={`px-2.5 py-1 text-[10px] sm:text-xs rounded-md transition-all whitespace-nowrap font-medium ${
+                  categoryFilter === cat
+                    ? mode === 'crypto' ? 'bg-blue-600 text-white shadow-lg' : 'bg-purple-600 text-white shadow-lg'
+                    : 'text-gray-400 hover:text-gray-200 hover:bg-slate-800'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
           </div>
         </div>
       </div>

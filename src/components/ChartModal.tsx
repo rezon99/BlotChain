@@ -24,7 +24,10 @@ export const ChartModal: React.FC<ChartModalProps> = ({ node, onClose, onAddToCo
       setLoading(true);
       setError(null);
       try {
-        const data = await coinGeckoApi.getCoinHistory(node.id, timeframe);
+        const data = node.volume24h !== undefined
+          ? await coinGeckoApi.getNFTHistory(node.id, timeframe)
+          : await coinGeckoApi.getCoinHistory(node.id, timeframe);
+
         setHistoryData(data.prices);
       } catch (err) {
         setError('Failed to load historical data');
@@ -54,9 +57,13 @@ export const ChartModal: React.FC<ChartModalProps> = ({ node, onClose, onAddToCo
         {/* Header */}
         <div className="flex justify-between items-start p-6 bg-slate-800/50 border-b border-slate-700">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-slate-800 border-2 border-slate-700 flex items-center justify-center text-xl font-bold">
-              {node.name.charAt(0)}
-            </div>
+            {node.image ? (
+              <img src={node.image} className="w-12 h-12 rounded-full border-2 border-slate-700" alt={node.name} />
+            ) : (
+              <div className="w-12 h-12 rounded-full bg-slate-800 border-2 border-slate-700 flex items-center justify-center text-xl font-bold">
+                {node.name.charAt(0)}
+              </div>
+            )}
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-2xl font-bold text-white">{node.name}</h2>
@@ -144,6 +151,12 @@ export const ChartModal: React.FC<ChartModalProps> = ({ node, onClose, onAddToCo
                 <div className="text-gray-500 text-[10px] uppercase font-bold tracking-widest mb-1">Liquidity</div>
                 <div className="text-white font-bold">${(node.liquidity / 1e9).toFixed(2)}B</div>
               </div>
+              {node.volume24h !== undefined && (
+                <div>
+                  <div className="text-gray-500 text-[10px] uppercase font-bold tracking-widest mb-1">24h Volume</div>
+                  <div className="text-white font-bold">${(node.volume24h / 1e6).toFixed(2)}M</div>
+                </div>
+              )}
             </div>
 
             <button

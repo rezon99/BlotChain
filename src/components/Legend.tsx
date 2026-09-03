@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { ChevronDown, ChevronUp, HelpCircle } from 'lucide-react';
+import { DashboardMode } from '../types';
 
 interface LegendProps {
+  mode: DashboardMode;
   className?: string;
   isCollapsible?: boolean;
 }
 
-export const Legend: React.FC<LegendProps> = React.memo(({ className, isCollapsible = true }) => {
+export const Legend: React.FC<LegendProps> = React.memo(({ mode, className, isCollapsible = true }) => {
   const [isCollapsed, setIsCollapsed] = useState(true);
 
   return (
@@ -30,11 +32,11 @@ export const Legend: React.FC<LegendProps> = React.memo(({ className, isCollapsi
         <div className="mt-2 pt-2 border-t border-gray-800 space-y-1.5 text-[11px] sm:text-xs">
           <div className="flex items-center gap-2">
             <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
-            <span className="text-gray-300 font-medium">Growing (+5%)</span>
+            <span className="text-gray-300 font-medium">Growing ({mode === 'crypto' ? '+5%' : 'Bullish'})</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
-            <span className="text-gray-300 font-medium">Declining (-5%)</span>
+            <span className="text-gray-300 font-medium">Declining ({mode === 'crypto' ? '-5%' : 'Bearish'})</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
@@ -42,12 +44,12 @@ export const Legend: React.FC<LegendProps> = React.memo(({ className, isCollapsi
           </div>
           <div className="flex items-center gap-2">
             <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-            <span className="text-gray-300 font-medium">Stable</span>
+            <span className="text-gray-300 font-medium">{mode === 'crypto' ? 'Stable' : 'Hub / Chain'}</span>
           </div>
           <div className="pt-1.5 border-t border-gray-800">
             <div className="flex items-center gap-1.5">
               <div className="w-3 h-0.5 bg-blue-500" />
-              <span className="text-gray-300">Liquidity Inflow</span>
+              <span className="text-gray-300">{mode === 'crypto' ? 'Liquidity Inflow' : 'Collection Flow'}</span>
             </div>
           </div>
         </div>

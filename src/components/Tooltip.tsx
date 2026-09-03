@@ -103,38 +103,12 @@ export const Tooltip: React.FC<TooltipProps> = ({ data }) => {
           </div>
         )}
 
-        {/* MEVShield Threat Vector Details */}
-        {'riskScore' in node && typeof (node as Record<string, unknown>).riskScore === 'number' && (
-          <div className="mt-3 pt-3 border-t border-gray-700 space-y-1.5">
-            <div className="flex justify-between items-center text-xs">
-              <span className="text-gray-400 uppercase tracking-wider font-bold">MEV Risk:</span>
-              <span className="font-bold px-1.5 py-0.5 rounded text-[10px]" style={{
-                backgroundColor: `${('threatColor' in node && typeof node.threatColor === 'string' ? node.threatColor : node.color)}22`,
-                color: ('threatColor' in node && typeof node.threatColor === 'string' ? node.threatColor : node.color),
-                border: `1px solid ${('threatColor' in node && typeof node.threatColor === 'string' ? node.threatColor : node.color)}44`
-              }}>
-                {((node as Record<string, unknown>).riskScore as number * 100).toFixed(0)}% ({String((node as Record<string, unknown>).threatLevel || 'UNKNOWN')})
-              </span>
-            </div>
-            {'detectedThreats' in node && Array.isArray((node as Record<string, unknown>).detectedThreats) && ((node as Record<string, unknown>).detectedThreats as string[]).length > 0 && (
-              <div className="text-[11px] text-red-400 font-mono">
-                Threats: {((node as Record<string, unknown>).detectedThreats as string[]).join(', ')}
-              </div>
-            )}
-            {'actionTaken' in node && typeof (node as Record<string, unknown>).actionTaken === 'string' && (
-              <div className="text-[10px] text-indigo-300 font-mono">
-                Action: {String((node as Record<string, unknown>).actionTaken)}
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Status indicator */}
         <div className="mt-3 pt-2 border-t border-gray-700">
           <div className="flex items-center gap-2">
             <div
               className="w-2 h-2 rounded-full"
-              style={{ backgroundColor: 'threatColor' in node && typeof node.threatColor === 'string' ? node.threatColor : node.color }}
+              style={{ backgroundColor: node.color }}
             />
             <span className="text-xs text-gray-400">
               {Math.abs(node.change24h) > 20 ? 'High Volatility' :

@@ -41,6 +41,29 @@ interface MarketChartData {
   total_volumes: [number, number][];
 }
 
+interface NFTMarketData {
+  id: string;
+  contract_address: string;
+  asset_platform_id: string;
+  name: string;
+  symbol: string;
+  image: {
+    small: string;
+  };
+  floor_price: {
+    native_currency: number;
+    usd: number;
+  };
+  market_cap: {
+    native_currency: number;
+    usd: number;
+  };
+  volume_24h: {
+    native_currency: number;
+    usd: number;
+  };
+  floor_price_in_usd_24h_percentage_change: number;
+}
 
 class CoinGeckoApiService {
   private cache: Map<string, { data: unknown; timestamp: number }> = new Map();
@@ -149,8 +172,7 @@ class CoinGeckoApiService {
     }
 
     try {
-      const sanitizedCoinId = encodeURIComponent(coinId);
-      return await this.makeRequest<MarketChartData>(`/coins/${sanitizedCoinId}/market_chart`, params);
+      return await this.makeRequest<MarketChartData>(`/coins/${coinId}/market_chart`, params);
     } catch (error) {
       console.warn(`Coin history failed for ${coinId}, using simulation fallback:`, error);
 
@@ -178,7 +200,42 @@ class CoinGeckoApiService {
     }
   }
 
+  async getNFTMarkets(limit: number = 20): Promise<NFTMarketData[]> {
+    return this.makeRequest<NFTMarketData[]>('/nfts/markets', {
+      order: 'market_cap_usd_desc',
+      per_page: limit.toString(),
+      page: '1'
+    });
+  }
+
+  async getNFTHistory(nftId: string, days: number = 7): Promise<MarketChartData> {
+    try {
+      // Note: NFT market chart API might require Pro or have different availability
+      return await this.makeRequest<MarketChartData>(`/nfts/${nftId}/market_chart`, {
+        days: days.toString()
+      });
+    } catch (error) {
+      console.warn(`NFT history failed for ${nftId}, using simulation fallback:`, error);
+      // Simulation fallback for NFT history
+      const points = days === 1 ? 24 : days * 6;
+      const prices: [number, number][] = [];
+      const now = Date.now();
+      const step = (days * 24 * 60 * 60 * 1000) / points;
+      let mockPrice = 1.5; // Default mock floor price
+
+      for (let i = 0; i <= points; i++) {
+        mockPrice *= (1 + (Math.random() * 0.06 - 0.03));
+        prices.push([now - (points - i) * step, mockPrice]);
+      }
+
+      return {
+        prices,
+        market_caps: [],
+        total_volumes: []
+      };
+    }
+  }
 }
 
 export const coinGeckoApi = new CoinGeckoApiService();
-export type { CoinMarketData, ExchangeData, GlobalMarketData };
+export type { CoinMarketData, ExchangeData, GlobalMarketData, NFTMarketData };

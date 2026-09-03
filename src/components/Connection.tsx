@@ -11,16 +11,15 @@ interface ConnectionProps {
 }
 
 const Particle: React.FC<{ 
-  particle: ParticleType & { color?: string };
+  particle: ParticleType;
   path: string;
   animationSettings: AnimationSettings;
 }> = ({ particle, path, animationSettings }) => {
   if (!animationSettings.enabled) return null;
 
   const baseDuration = 3;
-  const particleSpeedFactor = particle.speed > 0 ? (particle.speed / 0.005) : 1;
   const duration = animationSettings.particleSpeed > 0
-    ? baseDuration / (animationSettings.particleSpeed * particleSpeedFactor)
+    ? baseDuration / animationSettings.particleSpeed
     : 0;
 
   if (duration === 0) return null;
@@ -28,15 +27,14 @@ const Particle: React.FC<{
   // Calculate initial offset to start particle at the correct progress
   // Using a negative begin value allows starting at an offset within the duration
   const beginValue = -particle.progress * duration;
-  const particleColor = particle.color || 'white';
 
   return (
     <circle
       r={particle.size}
-      fill={particleColor}
-      opacity={0.9}
+      fill="white"
+      opacity={0.8}
       style={{
-        filter: `drop-shadow(0 0 4px ${particleColor})`
+        filter: 'drop-shadow(0 0 4px rgba(255,255,255,0.6))'
       }}
     >
       <animateMotion
