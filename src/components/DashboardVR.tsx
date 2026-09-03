@@ -158,6 +158,43 @@ export const DashboardVR: React.FC<DashboardVRProps> = ({
     });
   }, []);
 
+  const exportToJson = useCallback(() => {
+    const data = {
+      timestamp: new Date().toISOString(),
+      mode,
+      viewMode: 'vr',
+      nodes,
+      connections
+    };
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `blotchain-vr-export-${mode}-${new Date().getTime()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [mode, nodes, connections]);
+
+  const exportToPng = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    try {
+      const pngUrl = canvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = pngUrl;
+      a.download = `blotchain-vr-snapshot-${mode}-${new Date().getTime()}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error('Failed to export PNG:', err);
+    }
+  }, [mode]);
+
   useEffect(() => {
     const container = containerRef.current;
     const canvas = canvasRef.current;
@@ -382,7 +419,7 @@ export const DashboardVR: React.FC<DashboardVRProps> = ({
       const line = new THREE.Line(lineGeo, isConnHighlighted ? activeLineMaterial : lineMaterial);
       constellationGroup.add(line);
 
-      const flowColor = conn.flowDirection === 'inflow' ? '#10b981' : '#f43f5e';
+      const flowColor = conn.direction === 'in' ? '#10b981' : '#f43f5e';
       const particleMat = new THREE.MeshBasicMaterial({
         color: flowColor,
         transparent: true,
@@ -569,6 +606,31 @@ export const DashboardVR: React.FC<DashboardVRProps> = ({
       window.removeEventListener('pointerdown', handlePointerDown);
       resizeObserver.disconnect();
       controls.dispose();
+
+      // Dispose all geometries, materials, and textures in scene to prevent WebGL leaks
+      scene.traverse(object => {
+        const mesh = object as THREE.Mesh;
+        if (mesh.geometry) {
+          mesh.geometry.dispose();
+        }
+        if (mesh.material) {
+          const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+          materials.forEach(mat => {
+            if ('map' in mat && mat.map) {
+              (mat.map as THREE.Texture).dispose();
+            }
+            mat.dispose();
+          });
+        }
+      });
+
+      sphereGeo.dispose();
+      particleGeo.dispose();
+      starsGeo.dispose();
+      starMat.dispose();
+      lineMaterial.dispose();
+      activeLineMaterial.dispose();
+
       renderer.dispose();
       scene.clear();
       document.body.style.cursor = 'default';
@@ -724,9 +786,8 @@ export const DashboardVR: React.FC<DashboardVRProps> = ({
         setRefreshInterval={setRefreshInterval}
         animationSettings={animationSettings}
         setAnimationSettings={setAnimationSettings}
-        onResetLayout={() => {}}
-        onExportJson={() => {}}
-        onExportPng={() => {}}
+        onExportJson={exportToJson}
+        onExportPng={exportToPng}
       />
 
       <ComparisonPanel

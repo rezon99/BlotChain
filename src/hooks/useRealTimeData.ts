@@ -20,6 +20,11 @@ export function useRealTimeData(mode: DashboardMode = 'crypto', refreshInterval:
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
   const activeFetchId = useRef(0);
+  const nodesRef = useRef<Node[]>([]);
+
+  useEffect(() => {
+    nodesRef.current = nodes;
+  }, [nodes]);
 
   const fetchData = useCallback(async () => {
     const fetchId = ++activeFetchId.current;
@@ -54,14 +59,11 @@ export function useRealTimeData(mode: DashboardMode = 'crypto', refreshInterval:
     } catch (err) {
       if (fetchId !== activeFetchId.current) return;
       console.error('Failed to fetch data:', err);
-      setNodes((prev) => {
-        if (prev.length === 0) {
-          const fallback = generateMockNodes();
-          setConnections(generateMockConnections(fallback));
-          return fallback;
-        }
-        return prev;
-      });
+      if (nodesRef.current.length === 0) {
+        const fallback = generateMockNodes();
+        setNodes(fallback);
+        setConnections(generateMockConnections(fallback));
+      }
       setError(err instanceof Error ? err.message : 'Failed to fetch data');
       setLoading(false);
     }

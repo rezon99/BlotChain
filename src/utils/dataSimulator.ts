@@ -68,31 +68,3 @@ export function generateMockConnections(nodes: Node[]): Connection[] {
   return connections;
 }
 
-
-export function updateNodesData(nodes: Node[]): Node[] {
-  return nodes.map(node => {
-    // Simulate small changes
-    const changeMultiplier = 0.95 + Math.random() * 0.1;
-    const newChange24h = node.change24h * 0.95 + (Math.random() - 0.5) * 2;
-    const newLiquidity = node.liquidity * changeMultiplier;
-    
-    return {
-      ...node,
-      liquidity: newLiquidity,
-      change24h: newChange24h,
-      size: Math.max(30, Math.min(120, newLiquidity / 15000000)),
-      color: getNodeColor(newChange24h, node.change7d),
-      lastUpdated: Date.now()
-    };
-  });
-}
-
-export function updateParticles(connections: Connection[]): Connection[] {
-  return connections.map(connection => ({
-    ...connection,
-    particles: connection.particles.map(particle => ({
-      ...particle,
-      progress: (particle.progress + particle.speed) % 1
-    }))
-  }));
-}
