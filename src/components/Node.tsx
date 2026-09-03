@@ -38,8 +38,8 @@ export const Node: React.FC<NodeProps> = React.memo(({
   const [dragStarted, setDragStarted] = useState(false);
   const [mouseDownPos, setMouseDownPos] = useState({ x: 0, y: 0 });
 
-  const isPulsing = (node as any).isPulsing;
-  const threatColor = (node as any).threatColor || node.color;
+  const isPulsing = 'isPulsing' in node ? Boolean(node.isPulsing) : false;
+  const threatColor = 'threatColor' in node && typeof node.threatColor === 'string' ? node.threatColor : node.color;
   const breathingIntensity = animationSettings.enabled ? animationSettings.breathingIntensity : 0;
   const transformStyle = {
     '--breathing-intensity': breathingIntensity,
