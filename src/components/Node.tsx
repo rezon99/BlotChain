@@ -38,8 +38,6 @@ export const Node: React.FC<NodeProps> = React.memo(({
   const [dragStarted, setDragStarted] = useState(false);
   const [mouseDownPos, setMouseDownPos] = useState({ x: 0, y: 0 });
 
-  const isPulsing = 'isPulsing' in node ? Boolean(node.isPulsing) : false;
-  const threatColor = 'threatColor' in node && typeof node.threatColor === 'string' ? node.threatColor : node.color;
   const breathingIntensity = animationSettings.enabled ? animationSettings.breathingIntensity : 0;
   const transformStyle = {
     '--breathing-intensity': breathingIntensity,
@@ -48,7 +46,7 @@ export const Node: React.FC<NodeProps> = React.memo(({
     transform: `scale(${scale})`,
     cursor: isDragging ? 'grabbing' : 'grab',
     opacity: isConnected || node.isSelected ? 1 : 0.9,
-    filter: `drop-shadow(0 4px 8px rgba(0,0,0,0.3)) ${node.isSelected ? `drop-shadow(0 0 ${glowIntensity}px ${threatColor})` : ''}`,
+    filter: `drop-shadow(0 4px 8px rgba(0,0,0,0.3)) ${node.isSelected ? `drop-shadow(0 0 ${glowIntensity}px ${node.color})` : ''}`,
     transition: isDragging ? 'none' : 'transform 0.1s ease-out'
   } as React.CSSProperties;
 
@@ -79,18 +77,6 @@ export const Node: React.FC<NodeProps> = React.memo(({
       }}
       onMouseLeave={onHoverEnd}
     >
-      {isPulsing && (
-        <circle
-          cx={node.x}
-          cy={node.y}
-          r={node.size + 12}
-          fill="none"
-          stroke={threatColor}
-          strokeWidth="2"
-          className="animate-ping"
-          opacity={0.75}
-        />
-      )}
       {node.image ? (
         <g>
           <defs>

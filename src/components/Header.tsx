@@ -1,8 +1,11 @@
 import React from 'react';
-import { LayoutGrid, Settings as SettingsIcon, ShieldCheck } from 'lucide-react';
+import { LayoutGrid, Settings as SettingsIcon } from 'lucide-react';
+import { DashboardMode } from '../types';
 
 interface HeaderProps {
   lastUpdate: Date;
+  mode?: DashboardMode;
+  onModeSwitch?: (mode: DashboardMode) => void;
   onOpenSettings: () => void;
   selectedCount: number;
   onClearSelection: () => void;
@@ -24,19 +27,16 @@ export const Header: React.FC<HeaderProps> = React.memo(({
         <div className="flex-1">
           <div className="flex items-center gap-2 sm:gap-3 mb-1">
             <LayoutGrid className="text-blue-500" size={22} />
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-white flex items-center gap-2">
-              BlotChain x MEVShield
-              <span className="text-xs bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-full flex items-center gap-1 font-mono">
-                <ShieldCheck size={12} /> PROTECTED
-              </span>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-white">
+              BlotChain Dashboard
             </h1>
           </div>
           <p className="text-gray-400 text-xs sm:text-sm">
-            Visual MEV & Intent Security Suite • Updated {lastUpdate.toLocaleTimeString()}
+            Live from CoinGecko • Updated {lastUpdate.toLocaleTimeString()}
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 sm:gap-4 w-full lg:w-auto">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full lg:w-auto">
           {/* View Mode (2D / 3D / VR) Switcher */}
           {onViewModeSwitch && (
             <div className="flex bg-slate-800/80 p-1 rounded-xl border border-slate-700 backdrop-blur-md overflow-x-auto gap-1">

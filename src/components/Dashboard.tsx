@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
-import { Node as NodeType, TooltipData, AnimationSettings } from '../types';
+import { Node as NodeType, TooltipData, AnimationSettings, DashboardMode } from '../types';
 import { Node } from './Node';
 import { Connection as ConnectionComponent } from './Connection';
 import { Tooltip } from './Tooltip';
@@ -12,47 +11,36 @@ import { ComparisonPanel } from './ComparisonPanel';
 import { Header } from './Header';
 import { Legend } from './Legend';
 import { LiveStatus } from './LiveStatus';
-import { MEVShieldPanel } from './MEVShieldPanel';
 import { ChartModal } from './ChartModal';
 import { useRealTimeData } from '../hooks/useRealTimeData';
-import { useMEVShieldData } from '../hooks/useMEVShieldData';
 import { adaptNodesToViewport, getResponsiveViewport } from '../utils/dataTransformer';
 
 interface DashboardProps {
+  mode?: DashboardMode;
+  onModeSwitch?: (mode: DashboardMode) => void;
   viewMode?: '2d' | '3d' | 'vr';
   onViewModeSwitch?: (viewMode: '2d' | '3d' | 'vr') => void;
-  snapshotMode?: boolean;
-  useMevShield?: boolean;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
+  mode: propMode,
+  onModeSwitch: propOnModeSwitch,
   viewMode = '2d',
-  onViewModeSwitch,
-  snapshotMode = false,
-  useMevShield = true
+  onViewModeSwitch
 }) => {
+  const [internalMode, setInternalMode] = useState<DashboardMode>('crypto');
+  const mode = propMode ?? internalMode;
+  const setMode = propOnModeSwitch ?? setInternalMode;
+
   const [refreshInterval, setRefreshInterval] = useState<number>(() => {
     const saved = localStorage.getItem('blotchain_refresh_interval');
     return saved ? parseInt(saved, 10) : 30000;
   });
 
-  const realTimeData = useRealTimeData(refreshInterval, 20);
-  const mevShieldData = useMEVShieldData();
-
-  const { nodes, connections, loading, error, lastUpdate, refetch } = useMevShield
-    ? {
-        nodes: mevShieldData.nodes,
-        connections: mevShieldData.connections,
-        loading: mevShieldData.loading,
-        error: null,
-        lastUpdate: mevShieldData.currentPayload ? new Date(mevShieldData.currentPayload.timestamp * 1000) : new Date(),
-        refetch: () => {}
-      }
-    : realTimeData;
+  const { nodes, connections, loading, error, lastUpdate, refetch } = useRealTimeData(mode, refreshInterval);
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
   const [activeChartNode, setActiveChartNode] = useState<NodeType | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
-  const [isFilterCollapsed, setIsFilterCollapsed] = useState(true);
 
   const [manualPositions, setManualPositions] = useState<Record<string, { x: number, y: number }>>(() => {
     const saved = localStorage.getItem('blotchain_positions');
@@ -120,6 +108,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return () => observer.disconnect();
   }, []);
 
+  const handleModeSwitch = useCallback((newMode: DashboardMode) => {
+    if (newMode !== mode) {
+      setMode(newMode);
+      setSelectedNodes(new Set());
+      setCategoryFilter('All');
+    }
+  }, [mode, setMode]);
+
   const handleNodeSelect = useCallback((nodeId: string) => {
     const node = nodes.find(n => n.id === nodeId);
     if (node) {
@@ -139,11 +135,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
         }
       ]);
 
-      if (!node.isHub && !snapshotMode) {
+      if (!node.isHub) {
         setActiveChartNode(node);
       }
     }
-  }, [nodes, manualPositions, snapshotMode]);
+  }, [nodes, manualPositions]);
 
   const toggleComparison = useCallback((nodeId: string) => {
     setSelectedNodes(prev => {
@@ -269,6 +265,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const exportToJson = useCallback(() => {
     const data = {
       timestamp: new Date().toISOString(),
+      mode,
       nodes,
       connections,
       manualPositions
@@ -278,12 +275,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `blotchain-export-crypto-${new Date().getTime()}.json`;
+    a.download = `blotchain-export-${mode}-${new Date().getTime()}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }, [nodes, connections, manualPositions]);
+  }, [mode, nodes, connections, manualPositions]);
 
   const exportToPng = useCallback(() => {
     const svg = svgRef.current;
@@ -313,13 +310,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
       const pngUrl = canvas.toDataURL('image/png');
       const a = document.createElement('a');
       a.href = pngUrl;
-      a.download = `blotchain-snapshot-crypto-${new Date().getTime()}.png`;
+      a.download = `blotchain-snapshot-${mode}-${new Date().getTime()}.png`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
     };
     img.src = url;
-  }, [viewport]);
+  }, [mode, viewport]);
 
   const categories = useMemo(() => {
     const cats = new Set(nodes.filter(n => !n.isHub).map(n => n.category));
@@ -388,6 +385,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       <Header
         lastUpdate={lastUpdate}
+        mode={mode}
+        onModeSwitch={handleModeSwitch}
         onOpenSettings={() => setIsSettingsOpen(true)}
         selectedCount={selectedNodes.size}
         onClearSelection={clearSelection}
@@ -462,51 +461,34 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         )}
 
-        {useMevShield && mevShieldData.currentPayload && (
-          <div className="absolute top-4 left-4 z-20 max-w-xl">
-            <MEVShieldPanel payload={mevShieldData.currentPayload} />
-          </div>
-        )}
-
         {/* Floating Controls Overlays */}
         <LiveStatus
           nodeCount={nodes.length}
           connectionCount={connections.length}
-          className={`absolute ${useMevShield ? 'top-20' : 'top-4'} right-4 z-10`}
+          mode={mode}
+          className="absolute top-4 right-4 z-10"
         />
 
         <div className="absolute bottom-4 left-4 z-10 flex flex-col gap-2 max-w-[calc(100%-32px)]">
           <Legend
+            mode={mode}
             className="bg-gray-900 bg-opacity-90 backdrop-blur-sm border border-gray-700 rounded-lg p-3 w-full"
           />
           {/* Category Filter positioned vertically below the Legend panel */}
-          <div className="flex flex-col bg-gray-900 bg-opacity-95 backdrop-blur-sm rounded-lg border border-gray-700 overflow-hidden max-w-full">
-            <div
-              className="flex items-center justify-between px-3 py-1.5 cursor-pointer hover:bg-slate-800/50 transition-colors select-none"
-              onClick={() => setIsFilterCollapsed(!isFilterCollapsed)}
-            >
-              <span className="text-white text-[10px] font-bold uppercase tracking-wider">Categories</span>
-              <span className="text-gray-400">
-                {isFilterCollapsed ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-              </span>
-            </div>
-            {!isFilterCollapsed && (
-              <div className="flex items-center gap-1 sm:gap-2 p-1.5 border-t border-gray-800 overflow-x-auto max-w-full">
-                {categories.map(cat => (
-                  <button
-                    key={cat}
-                    onClick={() => setCategoryFilter(cat)}
-                    className={`px-2.5 py-1 text-[10px] sm:text-xs rounded-md transition-all whitespace-nowrap font-medium ${
-                      categoryFilter === cat
-                        ? 'bg-blue-600 text-white shadow-lg'
-                        : 'text-gray-400 hover:text-gray-200 hover:bg-slate-800'
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-            )}
+          <div className="flex items-center gap-1 sm:gap-2 bg-gray-900 bg-opacity-95 backdrop-blur-sm p-1.5 rounded-lg border border-gray-700 overflow-x-auto max-w-full">
+            {categories.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setCategoryFilter(cat)}
+                className={`px-2.5 py-1 text-[10px] sm:text-xs rounded-md transition-all whitespace-nowrap font-medium ${
+                  categoryFilter === cat
+                    ? mode === 'crypto' ? 'bg-blue-600 text-white shadow-lg' : 'bg-purple-600 text-white shadow-lg'
+                    : 'text-gray-400 hover:text-gray-200 hover:bg-slate-800'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -514,34 +496,28 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       <Tooltip data={tooltip} />
 
-      {!snapshotMode && (
-        <SettingsPanel
-          isOpen={isSettingsOpen}
-          onClose={() => setIsSettingsOpen(false)}
-          refreshInterval={refreshInterval}
-          setRefreshInterval={setRefreshInterval}
-          animationSettings={animationSettings}
-          setAnimationSettings={setAnimationSettings}
-          onResetLayout={resetLayout}
-          onExportJson={exportToJson}
-          onExportPng={exportToPng}
-        />
-      )}
+      <SettingsPanel
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        refreshInterval={refreshInterval}
+        setRefreshInterval={setRefreshInterval}
+        animationSettings={animationSettings}
+        setAnimationSettings={setAnimationSettings}
+        onResetLayout={resetLayout}
+        onExportJson={exportToJson}
+        onExportPng={exportToPng}
+      />
 
-      {!snapshotMode && (
-        <ComparisonPanel
-          selectedNodes={selectedNodeData}
-          onClear={clearSelection}
-        />
-      )}
+      <ComparisonPanel
+        selectedNodes={selectedNodeData}
+        onClear={clearSelection}
+      />
 
-      {!snapshotMode && (
-        <ChartModal
-          node={activeChartNode}
-          onClose={() => setActiveChartNode(null)}
-          onAddToComparison={toggleComparison}
-        />
-      )}
+      <ChartModal
+        node={activeChartNode}
+        onClose={() => setActiveChartNode(null)}
+        onAddToComparison={toggleComparison}
+      />
     </div>
   );
 };
